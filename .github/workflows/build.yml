@@ -1,0 +1,26 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build
+        run: dotnet build PowerHelper/PowerHelper.csproj -c Release
+
+      - name: Smoke test the power API on real Windows
+        shell: powershell
+        run: ./tests/smoke-test.ps1 -ExePath PowerHelper/bin/Release/net48/PowerHelper.exe
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: PowerHelper
+          path: PowerHelper/bin/Release/net48/PowerHelper.exe
+          if-no-files-found: error
