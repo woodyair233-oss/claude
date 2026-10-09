@@ -19,8 +19,8 @@ jobs:
         run: ./tests/smoke-test.ps1 -ExePath PowerHelper/bin/Release/net48/PowerHelper.exe
 
       - name: Upload exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: PowerHelper
           path: PowerHelper/bin/Release/net48/PowerHelper.exe
+          archive: false # downloads as PowerHelper.exe instead of a zip
           if-no-files-found: error

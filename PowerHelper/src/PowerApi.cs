@@ -141,7 +141,8 @@ namespace PowerHelper
             {
                 using (var process = Process.Start(start))
                 {
-                    process.WaitForExit();
+                    if (process != null)
+                        process.WaitForExit();
                 }
                 return true;
             }

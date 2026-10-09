@@ -23,7 +23,7 @@ Windows 小工具：设置电脑闲置多久后自动**关闭屏幕、睡眠、�
 ## 下载与使用
 
 1. 打开本仓库的 **Actions** 页面 → 左侧 **Build** → 点最新一次成功（绿色勾）的运行。
-2. 页面底部 **Artifacts** 区域下载 `PowerHelper`（zip），解压得到 `PowerHelper.exe`。
+2. 页面底部 **Artifacts** 区域点击 `PowerHelper.exe` 下载（需登录 GitHub）。
 3. 双击运行。程序没有数字签名，首次运行若出现“Windows 已保护你的电脑”（SmartScreen），点 **更多信息 → 仍要运行**。
 4. 调整选项后点 **应用**；或直接点 **一键设为“息屏⇄亮屏”**（只修改电源键，其他选项不变）。
 
