@@ -10,7 +10,18 @@ $assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path $ExePath).Path)
 $api = $assembly.GetType('PowerHelper.PowerApi', $true)
 $flags = [Reflection.BindingFlags]'Static, Public, NonPublic'
 
-function Invoke-Api([string]$name, [object[]]$arguments) { $api.GetMethod($name, $flags).Invoke($null, $arguments) }
+# Calls a static method of the exe; on failure, reports the innermost exception instead of
+# "Exception has been thrown by the target of an invocation".
+function Invoke-Static([Type]$type, [string]$name, [object[]]$arguments) {
+    try {
+        $type.GetMethod($name, $flags).Invoke($null, $arguments)
+    } catch {
+        $inner = $_.Exception
+        while ($inner.InnerException) { $inner = $inner.InnerException }
+        throw "$name failed: $($inner.GetType().FullName): $($inner.Message)`n$($inner.StackTrace)"
+    }
+}
+function Invoke-Api([string]$name, [object[]]$arguments) { Invoke-Static $api $name $arguments }
 function Get-ApiField([string]$name) { $api.GetField($name, $flags).GetValue($null) }
 function Assert([bool]$condition, [string]$message) { if (-not $condition) { throw "FAILED: $message" } }
 
@@ -98,7 +109,7 @@ foreach ($field in 'HibernateEnabled', 'HasBattery', 'HasLid', 'ModernStandby') 
 
 # Desktop shortcut with a hotkey for "turn off only the display".
 $screenOff = $assembly.GetType('PowerHelper.ScreenOff', $true)
-$shortcutPath = $screenOff.GetMethod('CreateDesktopShortcut', $flags).Invoke($null, @((Resolve-Path $ExePath).Path))
+$shortcutPath = Invoke-Static $screenOff 'CreateDesktopShortcut' @((Resolve-Path $ExePath).Path)
 try {
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
     "Shortcut: $shortcutPath -> $($link.TargetPath) $($link.Arguments) [$($link.Hotkey)]"

@@ -52,7 +52,8 @@ namespace PowerHelper
                 File.Copy(exePath, installedExe, true);
 
             // Windows only honours shortcut hotkeys for shortcuts on the desktop or in the Start menu.
-            string shortcutPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), ShortcutName);
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory, Environment.SpecialFolderOption.Create);
+            string shortcutPath = Path.Combine(desktop, ShortcutName);
             var shellType = Type.GetTypeFromProgID("WScript.Shell", true);
             object shell = Activator.CreateInstance(shellType);
             try
