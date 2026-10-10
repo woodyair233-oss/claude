@@ -110,16 +110,22 @@ foreach ($field in 'HibernateEnabled', 'HasBattery', 'HasLid', 'ModernStandby') 
 # Desktop shortcut with a hotkey for "turn off only the display".
 $screenOff = $assembly.GetType('PowerHelper.ScreenOff', $true)
 $shortcutPath = Invoke-Static $screenOff 'CreateDesktopShortcut' @((Resolve-Path $ExePath).Path)
+$asciiCopy = Join-Path $env:TEMP 'screenoff-check.lnk'
 try {
-    $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
-    "Shortcut: $shortcutPath -> $($link.TargetPath) $($link.Arguments) [$($link.Hotkey)]"
+    # The name must be the Chinese "xi ping" (U+606F U+5C4F), not "??" from an ANSI round trip.
+    Assert (Test-Path -LiteralPath $shortcutPath) 'shortcut file exists'
+    Assert ([IO.Path]::GetFileName($shortcutPath) -eq ([string][char]0x606F + [char]0x5C4F + '.lnk')) 'shortcut file name'
+    # WScript.Shell itself is ANSI-only, so inspect an ASCII-named copy.
+    Copy-Item -LiteralPath $shortcutPath $asciiCopy -Force
+    $link = (New-Object -ComObject WScript.Shell).CreateShortcut($asciiCopy)
+    "Shortcut -> $($link.TargetPath) $($link.Arguments) [$($link.Hotkey)]"
     Assert (Test-Path $link.TargetPath) 'shortcut target was copied'
     Assert ($link.TargetPath -like '*\PowerHelper\PowerHelper.exe') 'shortcut target folder'
     Assert ($link.Arguments -eq '/screenoff') 'shortcut arguments'
     $keys = ($link.Hotkey -split '\+' | Sort-Object) -join '+'
     Assert ($keys -eq 'Alt+Ctrl+S') "shortcut hotkey ($($link.Hotkey))"
 } finally {
-    Remove-Item $shortcutPath -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $shortcutPath, $asciiCopy -ErrorAction SilentlyContinue
     Remove-Item (Join-Path $env:LOCALAPPDATA 'PowerHelper') -Recurse -ErrorAction SilentlyContinue
 }
 
