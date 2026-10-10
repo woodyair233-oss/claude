@@ -23,6 +23,7 @@ namespace PowerHelper
         public static readonly Guid HibernateIdle = new Guid("9d7815a6-7ee4-497e-8888-515a05f02364");     // HIBERNATEIDLE (seconds, 0 = never)
         public static readonly Guid SubButtons = new Guid("4f971e89-eebd-4455-a8de-9e59040e7347");        // SUB_BUTTONS
         public static readonly Guid PowerButtonAction = new Guid("7648efa3-dd9c-4e3e-b566-50f929386280"); // PBUTTONACTION (index)
+        public static readonly Guid LidAction = new Guid("5ca83367-6e45-459f-a27b-476b1d01c936");         // LIDACTION (index)
 
         public const int ErrorAccessDenied = 5;
         const uint ErrorSuccess = 0;
@@ -30,8 +31,10 @@ namespace PowerHelper
         const int ErrorCancelled = 1223;
 
         // Byte offsets inside SYSTEM_POWER_CAPABILITIES (76 bytes in total).
+        const int LidPresentOffset = 2;
         const int SystemS4Offset = 6;
         const int HiberFilePresentOffset = 8;
+        const int AoAcOffset = 20;
         const int SystemBatteriesPresentOffset = 30;
         const int PowerCapabilitiesSize = 76;
 
@@ -39,6 +42,13 @@ namespace PowerHelper
         {
             public bool HibernateEnabled;
             public bool HasBattery;
+            public bool HasLid;
+
+            /// <summary>
+            /// Modern Standby (S0 low power idle). On these PCs Windows offers no "turn off the display"
+            /// power button action: the value can still be written, but pressing the button does nothing.
+            /// </summary>
+            public bool ModernStandby;
         }
 
         public static Guid GetActiveScheme()
@@ -102,6 +112,8 @@ namespace PowerHelper
             {
                 HibernateEnabled = raw[SystemS4Offset] != 0 && raw[HiberFilePresentOffset] != 0,
                 HasBattery = raw[SystemBatteriesPresentOffset] != 0,
+                HasLid = raw[LidPresentOffset] != 0,
+                ModernStandby = raw[AoAcOffset] != 0,
             };
         }
 

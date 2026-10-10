@@ -13,10 +13,12 @@ namespace PowerHelper
         const uint DisplayOff = 4;
 
         static readonly uint[] TimeoutChoices = { 60, 120, 180, 300, 600, 900, 1200, 1800, 2700, 3600, 7200, 10800, 18000, 0 };
-        static readonly string[] ButtonActionNames = { "不执行任何操作", "睡眠", "休眠", "关机", "关闭显示器（息屏⇄亮屏）" };
+        static readonly string[] ButtonActionNames = { "不执行任何操作", "睡眠", "休眠", "关机", "关闭显示器" };
+        static readonly string[] LidActionNames = { "不执行任何操作", "睡眠", "休眠", "关机" };
 
         readonly bool hasBattery = true;
-        readonly List<Choice> buttonChoices;
+        readonly bool hasLid;
+        readonly bool modernStandby;
         readonly List<SettingRow> rows = new List<SettingRow>();
         readonly SettingRow hibernateRow;
         readonly SettingRow buttonRow;
@@ -31,13 +33,15 @@ namespace PowerHelper
         {
             try
             {
-                hasBattery = PowerApi.GetCapabilities().HasBattery;
+                var capabilities = PowerApi.GetCapabilities();
+                hasBattery = capabilities.HasBattery;
+                hasLid = capabilities.HasLid;
+                modernStandby = capabilities.ModernStandby;
             }
             catch (Exception)
             {
                 // Unknown: keep the battery column so nothing is hidden by mistake.
             }
-            buttonChoices = LoadButtonChoices();
 
             SuspendLayout();
             AutoScaleDimensions = new SizeF(96F, 96F);
@@ -53,8 +57,16 @@ namespace PowerHelper
             enableHibernateButton.Click += delegate { EnableHibernate(); };
             var displayOffButton = NewButton("一键设为“息屏⇄亮屏”");
             displayOffButton.Click += delegate { UseDisplayOffButton(); };
-            var hint = NewLabel("按一下电源键：只关闭屏幕，电脑继续运行。\n再按一下电源键（或动鼠标、按任意键）：亮屏。");
-            hint.ForeColor = SystemColors.GrayText;
+            var hint = NewHint("按一下电源键：只关闭屏幕，电脑继续运行。\n再按一下电源键（或动鼠标、按任意键）：亮屏。");
+            var modernStandbyNote = NewHint("这台电脑使用“现代待机”（Modern Standby），Windows 不支持\n让电源键只关闭屏幕。请改用下方的“立即息屏”快捷键" +
+                (hasLid ? "，\n或把“合上盖子时”设为“不执行任何操作”（合盖只关屏幕）。" : "。"));
+            modernStandbyNote.ForeColor = Color.Firebrick;
+
+            var screenOffButton = NewButton("立即息屏");
+            screenOffButton.Click += delegate { TurnOffScreenSoon(); };
+            var shortcutButton = NewButton("在桌面创建“息屏”快捷方式（" + ScreenOff.Hotkey + "）");
+            shortcutButton.Click += delegate { CreateScreenOffShortcut(); };
+            var screenOffHint = NewHint("只关屏幕，电脑继续运行；动鼠标或按键即亮屏。\n建好后双击桌面“息屏”或按 " + ScreenOff.Hotkey + " 即可。");
             policyLabel.ForeColor = Color.Firebrick;
             policyLabel.MaximumSize = new Size(520, 0);
             policyLabel.Visible = false;
@@ -86,19 +98,35 @@ namespace PowerHelper
             AddWide(grid, line++, planLabel);
             AddWide(grid, line++, NewSection("闲置多久后自动…"));
             AddHeader(grid, line++);
-            rows.Add(AddRow(grid, line++, "关闭屏幕", PowerApi.SubVideo, PowerApi.VideoIdle, true));
-            rows.Add(AddRow(grid, line++, "进入睡眠", PowerApi.SubSleep, PowerApi.StandbyIdle, true));
-            hibernateRow = AddRow(grid, line++, "进入休眠", PowerApi.SubSleep, PowerApi.HibernateIdle, true);
+            rows.Add(AddRow(grid, line++, "关闭屏幕", PowerApi.SubVideo, PowerApi.VideoIdle));
+            rows.Add(AddRow(grid, line++, "进入睡眠", PowerApi.SubSleep, PowerApi.StandbyIdle));
+            hibernateRow = AddRow(grid, line++, "进入休眠", PowerApi.SubSleep, PowerApi.HibernateIdle);
             rows.Add(hibernateRow);
             AddWide(grid, line++, hibernateLabel);
             AddWide(grid, line++, enableHibernateButton);
 
-            AddWide(grid, line++, NewSection("电源键"));
+            AddWide(grid, line++, NewSection(hasLid ? "电源键与盖子" : "电源键"));
             AddHeader(grid, line++);
-            buttonRow = AddRow(grid, line++, "按下电源键时", PowerApi.SubButtons, PowerApi.PowerButtonAction, false);
+            // Modern Standby ignores "turn off the display" for the power button, so it is not offered there.
+            buttonRow = AddRow(grid, line++, "按下电源键时", PowerApi.SubButtons, PowerApi.PowerButtonAction,
+                ButtonActionNames, modernStandby ? DisplayOff : (uint?)null);
             rows.Add(buttonRow);
-            AddWide(grid, line++, displayOffButton);
-            AddWide(grid, line++, hint);
+            if (hasLid)
+                rows.Add(AddRow(grid, line++, "合上盖子时", PowerApi.SubButtons, PowerApi.LidAction, LidActionNames));
+            if (modernStandby)
+            {
+                AddWide(grid, line++, modernStandbyNote);
+            }
+            else
+            {
+                AddWide(grid, line++, displayOffButton);
+                AddWide(grid, line++, hint);
+            }
+
+            AddWide(grid, line++, NewSection("立即息屏"));
+            AddWide(grid, line++, screenOffButton);
+            AddWide(grid, line++, shortcutButton);
+            AddWide(grid, line++, screenOffHint);
 
             AddWide(grid, line++, policyLabel);
             AddWide(grid, line++, actions);
@@ -143,6 +171,32 @@ namespace PowerHelper
             {
                 LoadSettings();
                 statusLabel.Text = "设置已生效（" + DateTime.Now.ToString("HH:mm:ss") + "）";
+            }
+        }
+
+        void TurnOffScreenSoon()
+        {
+            statusLabel.Text = "1 秒后关闭屏幕，请先放开鼠标…";
+            var timer = new Timer { Interval = ScreenOff.DelayMilliseconds };
+            timer.Tick += delegate
+            {
+                timer.Dispose();
+                ScreenOff.TurnOff(Handle);
+                statusLabel.Text = "屏幕已关闭过（" + DateTime.Now.ToString("HH:mm:ss") + "）。动鼠标或按任意键即可亮屏。";
+            };
+            timer.Start();
+        }
+
+        void CreateScreenOffShortcut()
+        {
+            try
+            {
+                ScreenOff.CreateDesktopShortcut(Application.ExecutablePath);
+                statusLabel.Text = "已在桌面创建“息屏”：双击它或按 " + ScreenOff.Hotkey + " 即可息屏。";
+            }
+            catch (Exception ex)
+            {
+                ShowError("创建快捷方式失败：" + ex.Message);
             }
         }
 
@@ -254,16 +308,19 @@ namespace PowerHelper
             MessageBox.Show(this, message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
-        SettingRow AddRow(TableLayoutPanel grid, int rowIndex, string name, Guid subGroup, Guid setting, bool isTimeout)
+        /// <summary>Adds a timeout row, or an action row when <paramref name="actionNames"/> is given.</summary>
+        SettingRow AddRow(TableLayoutPanel grid, int rowIndex, string name, Guid subGroup, Guid setting,
+            string[] actionNames = null, uint? hiddenAction = null)
         {
+            var actions = actionNames == null ? null : LoadActionChoices(subGroup, setting, actionNames, hiddenAction);
             var row = new SettingRow
             {
                 Name = name,
                 SubGroup = subGroup,
                 Setting = setting,
-                IsTimeout = isTimeout,
-                Ac = isTimeout ? NewTimeoutCombo() : NewCombo(buttonChoices),
-                Dc = hasBattery ? (isTimeout ? NewTimeoutCombo() : NewCombo(buttonChoices)) : null,
+                ActionNames = actionNames,
+                Ac = actions == null ? NewTimeoutCombo() : NewCombo(actions),
+                Dc = hasBattery ? (actions == null ? NewTimeoutCombo() : NewCombo(actions)) : null,
             };
             grid.Controls.Add(NewLabel(name), 0, rowIndex);
             grid.Controls.Add(row.Ac, 1, rowIndex);
@@ -287,28 +344,34 @@ namespace PowerHelper
             grid.SetColumnSpan(control, grid.ColumnCount);
         }
 
-        static List<Choice> LoadButtonChoices()
+        static List<Choice> LoadActionChoices(Guid subGroup, Guid setting, string[] names, uint? hidden)
         {
-            // Ask Windows which actions this PC offers ("Turn off the display" is missing on old builds).
+            // Ask Windows which actions the setting defines ("Turn off the display" is missing on old builds).
+            // The list is not hardware-aware, hence the explicit hidden value for Modern Standby.
             var choices = new List<Choice>();
             for (uint index = 0; index < 10; index++)
             {
+                if (index == hidden)
+                    continue;
                 string systemName;
                 try
                 {
-                    systemName = PowerApi.GetPossibleValueName(PowerApi.SubButtons, PowerApi.PowerButtonAction, index);
+                    systemName = PowerApi.GetPossibleValueName(subGroup, setting, index);
                 }
                 catch (Exception)
                 {
                     break;
                 }
                 if (systemName != null)
-                    choices.Add(new Choice(index, index < ButtonActionNames.Length ? ButtonActionNames[index] : systemName));
+                    choices.Add(new Choice(index, index < names.Length ? names[index] : systemName));
             }
             if (choices.Count == 0)
             {
-                for (uint index = 0; index < ButtonActionNames.Length; index++)
-                    choices.Add(new Choice(index, ButtonActionNames[index]));
+                for (uint index = 0; index < names.Length; index++)
+                {
+                    if (index != hidden)
+                        choices.Add(new Choice(index, names[index]));
+                }
             }
             return choices;
         }
@@ -361,6 +424,13 @@ namespace PowerHelper
             return new Label { Text = text, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 6, 12, 6) };
         }
 
+        static Label NewHint(string text)
+        {
+            var label = NewLabel(text);
+            label.ForeColor = SystemColors.GrayText;
+            return label;
+        }
+
         static Button NewButton(string text)
         {
             return new Button
@@ -394,7 +464,7 @@ namespace PowerHelper
             public string Name;
             public Guid SubGroup;
             public Guid Setting;
-            public bool IsTimeout;
+            public string[] ActionNames; // null for timeout rows
             public ComboBox Ac;
             public ComboBox Dc; // null on PCs without a battery
 
@@ -407,9 +477,11 @@ namespace PowerHelper
                     box.SelectedItem = existing;
                     return;
                 }
-                var custom = new Choice(value, IsTimeout ? DescribeTimeout(value) : "其他（" + value + "）");
+                bool isTimeout = ActionNames == null;
+                var custom = new Choice(value, isTimeout ? DescribeTimeout(value)
+                    : (value < ActionNames.Length ? ActionNames[value] : "其他（" + value + "）") + "（此电脑不支持）");
                 int insertAt = box.Items.Count;
-                if (IsTimeout)
+                if (isTimeout)
                 {
                     // Keep ascending order with "从不" (0) last.
                     for (int i = 0; i < box.Items.Count; i++)

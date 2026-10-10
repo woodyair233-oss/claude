@@ -1,6 +1,6 @@
 # Exercises the powrprof.dll layer of the built exe on a real Windows machine (the CI runner):
-# reads the active plan, round-trips writes, and lists the power-button actions Windows offers.
-# Every value that is changed is restored afterwards.
+# reads the active plan, round-trips writes, lists the power-button actions Windows offers and
+# creates the screen-off desktop shortcut. Every change is undone afterwards.
 param(
     [Parameter(Mandatory = $true)][string]$ExePath
 )
@@ -21,17 +21,22 @@ Assert ($scheme -ne [Guid]::Empty) 'active scheme GUID'
 Assert (-not [string]::IsNullOrEmpty($name)) 'active scheme name'
 
 $settings = @(
-    @{ Label = 'VIDEOIDLE';     Sub = 'SubVideo';   Setting = 'VideoIdle' },
-    @{ Label = 'STANDBYIDLE';   Sub = 'SubSleep';   Setting = 'StandbyIdle' },
-    @{ Label = 'HIBERNATEIDLE'; Sub = 'SubSleep';   Setting = 'HibernateIdle' },
-    @{ Label = 'PBUTTONACTION'; Sub = 'SubButtons'; Setting = 'PowerButtonAction' }
+    @{ Label = 'VIDEOIDLE';     Sub = 'SubVideo';   SubAlias = 'SUB_VIDEO';   Setting = 'VideoIdle' },
+    @{ Label = 'STANDBYIDLE';   Sub = 'SubSleep';   SubAlias = 'SUB_SLEEP';   Setting = 'StandbyIdle' },
+    @{ Label = 'HIBERNATEIDLE'; Sub = 'SubSleep';   SubAlias = 'SUB_SLEEP';   Setting = 'HibernateIdle' },
+    @{ Label = 'PBUTTONACTION'; Sub = 'SubButtons'; SubAlias = 'SUB_BUTTONS'; Setting = 'PowerButtonAction' },
+    @{ Label = 'LIDACTION';     Sub = 'SubButtons'; SubAlias = 'SUB_BUTTONS'; Setting = 'LidAction' }
 )
+$aliases = powercfg /aliases | Out-String
 foreach ($s in $settings) {
     $sub = Get-ApiField $s.Sub
     $setting = Get-ApiField $s.Setting
     $ac = Invoke-Api 'ReadValue' @($scheme, $sub, $setting, $true)
     $dc = Invoke-Api 'ReadValue' @($scheme, $sub, $setting, $false)
     "{0,-14} AC={1} DC={2}  policy={3}" -f $s.Label, $ac, $dc, (Invoke-Api 'IsSetByPolicy' @($setting))
+    # Our GUID constants must match Windows' own aliases.
+    Assert ($aliases -match "(?m)^\s*$setting\s+$($s.Label)\s*$") "$($s.Label) GUID matches powercfg /aliases"
+    Assert ($aliases -match "(?m)^\s*$sub\s+$($s.SubAlias)\s*$") "$($s.SubAlias) GUID matches powercfg /aliases"
 }
 
 # Cross-check one value against powercfg (the CI runner is English Windows).
@@ -76,6 +81,24 @@ if ($actions -match '^4=') {
 
 $capabilities = Invoke-Api 'GetCapabilities' @()
 $capType = $capabilities.GetType()
-"Hibernate enabled: $($capType.GetField('HibernateEnabled').GetValue($capabilities)); battery: $($capType.GetField('HasBattery').GetValue($capabilities))"
+foreach ($field in 'HibernateEnabled', 'HasBattery', 'HasLid', 'ModernStandby') {
+    "${field}: $($capType.GetField($field).GetValue($capabilities))"
+}
+
+# Desktop shortcut with a hotkey for "turn off only the display".
+$screenOff = $assembly.GetType('PowerHelper.ScreenOff', $true)
+$shortcutPath = $screenOff.GetMethod('CreateDesktopShortcut', $flags).Invoke($null, @((Resolve-Path $ExePath).Path))
+try {
+    $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
+    "Shortcut: $shortcutPath -> $($link.TargetPath) $($link.Arguments) [$($link.Hotkey)]"
+    Assert (Test-Path $link.TargetPath) 'shortcut target was copied'
+    Assert ($link.TargetPath -like '*\PowerHelper\PowerHelper.exe') 'shortcut target folder'
+    Assert ($link.Arguments -eq '/screenoff') 'shortcut arguments'
+    $keys = ($link.Hotkey -split '\+' | Sort-Object) -join '+'
+    Assert ($keys -eq 'Alt+Ctrl+S') "shortcut hotkey ($($link.Hotkey))"
+} finally {
+    Remove-Item $shortcutPath -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $env:LOCALAPPDATA 'PowerHelper') -Recurse -ErrorAction SilentlyContinue
+}
 
 'Smoke test passed.'
