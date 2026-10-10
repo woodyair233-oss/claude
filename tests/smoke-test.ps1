@@ -21,22 +21,33 @@ Assert ($scheme -ne [Guid]::Empty) 'active scheme GUID'
 Assert (-not [string]::IsNullOrEmpty($name)) 'active scheme name'
 
 $settings = @(
-    @{ Label = 'VIDEOIDLE';     Sub = 'SubVideo';   SubAlias = 'SUB_VIDEO';   Setting = 'VideoIdle' },
-    @{ Label = 'STANDBYIDLE';   Sub = 'SubSleep';   SubAlias = 'SUB_SLEEP';   Setting = 'StandbyIdle' },
-    @{ Label = 'HIBERNATEIDLE'; Sub = 'SubSleep';   SubAlias = 'SUB_SLEEP';   Setting = 'HibernateIdle' },
-    @{ Label = 'PBUTTONACTION'; Sub = 'SubButtons'; SubAlias = 'SUB_BUTTONS'; Setting = 'PowerButtonAction' },
-    @{ Label = 'LIDACTION';     Sub = 'SubButtons'; SubAlias = 'SUB_BUTTONS'; Setting = 'LidAction' }
+    @{ Label = 'VIDEOIDLE';     Sub = 'SubVideo';   Setting = 'VideoIdle';         Name = 'display' },
+    @{ Label = 'STANDBYIDLE';   Sub = 'SubSleep';   Setting = 'StandbyIdle';       Name = 'Sleep after' },
+    @{ Label = 'HIBERNATEIDLE'; Sub = 'SubSleep';   Setting = 'HibernateIdle';     Name = 'Hibernate after' },
+    @{ Label = 'PBUTTONACTION'; Sub = 'SubButtons'; Setting = 'PowerButtonAction'; Name = 'Power button' },
+    @{ Label = 'LIDACTION';     Sub = 'SubButtons'; Setting = 'LidAction';         Name = 'Lid' }
 )
-$aliases = powercfg /aliases | Out-String
+
+# Windows' own (English) name of a setting, to prove each GUID constant points at the intended setting.
+Add-Type -Namespace SmokeTest -Name Power -MemberDefinition @'
+[DllImport("powrprof.dll")]
+static extern uint PowerReadFriendlyName(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, byte[] buffer, ref uint size);
+public static string SettingName(Guid scheme, Guid sub, Guid setting) {
+    uint size = 0;
+    PowerReadFriendlyName(IntPtr.Zero, ref scheme, ref sub, ref setting, null, ref size);
+    var buffer = new byte[size];
+    if (PowerReadFriendlyName(IntPtr.Zero, ref scheme, ref sub, ref setting, buffer, ref size) != 0) return null;
+    return System.Text.Encoding.Unicode.GetString(buffer).TrimEnd('\0');
+}
+'@
 foreach ($s in $settings) {
     $sub = Get-ApiField $s.Sub
     $setting = Get-ApiField $s.Setting
     $ac = Invoke-Api 'ReadValue' @($scheme, $sub, $setting, $true)
     $dc = Invoke-Api 'ReadValue' @($scheme, $sub, $setting, $false)
-    "{0,-14} AC={1} DC={2}  policy={3}" -f $s.Label, $ac, $dc, (Invoke-Api 'IsSetByPolicy' @($setting))
-    # Our GUID constants must match Windows' own aliases.
-    Assert ($aliases -match "(?m)^\s*$setting\s+$($s.Label)\s*$") "$($s.Label) GUID matches powercfg /aliases"
-    Assert ($aliases -match "(?m)^\s*$sub\s+$($s.SubAlias)\s*$") "$($s.SubAlias) GUID matches powercfg /aliases"
+    $settingName = [SmokeTest.Power]::SettingName($scheme, $sub, $setting)
+    "{0,-14} AC={1} DC={2}  policy={3}  name='{4}'" -f $s.Label, $ac, $dc, (Invoke-Api 'IsSetByPolicy' @($setting)), $settingName
+    Assert ($settingName -match $s.Name) "$($s.Label) GUID is the '$($s.Name)' setting"
 }
 
 # Cross-check one value against powercfg (the CI runner is English Windows).
