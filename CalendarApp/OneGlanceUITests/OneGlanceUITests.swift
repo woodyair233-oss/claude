@@ -7,7 +7,9 @@ final class OneGlanceUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        print("UI-STEP: launch")
         app.launch()
+        print("UI-STEP: launched")
         grantAccessIfAsked()
         XCTAssertTrue(app.textFields["quickAdd"].waitForExistence(timeout: 15),
                       "Main screen did not appear\n\(app.debugDescription)")
@@ -30,6 +32,10 @@ final class OneGlanceUITests: XCTestCase {
         }
     }
 
+    private func step(_ name: String) {
+        print("UI-STEP: \(name)")
+    }
+
     private func quickAdd(_ text: String) {
         let field = app.textFields["quickAdd"]
         field.tap()
@@ -43,11 +49,13 @@ final class OneGlanceUITests: XCTestCase {
 
     func testPlanningFlow() throws {
         // Quick add an event for tomorrow 15:00–16:00
+        step("quick add event")
         quickAdd("tomorrow 3pm Standup 1h")
         XCTAssertTrue(app.staticTexts["已新增日程「Standup」"].waitForExistence(timeout: 5),
                       "No confirmation toast\n\(app.debugDescription)")
 
         // It shows on tomorrow's time grid
+        step("next day")
         app.buttons["下一页"].tap()
         let title = app.staticTexts["Standup"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), "Event not on the timeline\n\(app.debugDescription)")
@@ -55,6 +63,7 @@ final class OneGlanceUITests: XCTestCase {
                       "Unexpected time\n\(app.debugDescription)")
 
         // Long-press and drag it down about an hour
+        step("drag")
         let grab = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         grab.press(forDuration: 0.6, thenDragTo: grab.withOffset(CGVector(dx: 0, dy: 56)),
                    withVelocity: .slow, thenHoldForDuration: 0.3)
@@ -65,6 +74,7 @@ final class OneGlanceUITests: XCTestCase {
         print("After move: \(afterMove)")
 
         // Drag the bottom edge down about half an hour
+        step("resize")
         let block = app.staticTexts["Standup"]
         let top = block.frame.minY - 3
         let edge = app.coordinate(withNormalizedOffset: .zero)
@@ -77,11 +87,13 @@ final class OneGlanceUITests: XCTestCase {
         print("After resize: \(resized.label)")
 
         // Week view
+        step("week view")
         app.buttons["周"].tap()
         XCTAssertTrue(app.staticTexts["全天"].waitForExistence(timeout: 3), "Week view missing\n\(app.debugDescription)")
         XCTAssertTrue(app.staticTexts["Standup"].exists, "Event missing in week view\n\(app.debugDescription)")
 
         // Month view: paint a night shift on the 20th with the shift brush
+        step("month view")
         app.buttons["月"].tap()
         let brush = app.buttons["排班"]
         XCTAssertTrue(brush.waitForExistence(timeout: 3), "Month view missing\n\(app.debugDescription)")
@@ -95,6 +107,7 @@ final class OneGlanceUITests: XCTestCase {
         brush.tap()
 
         // Back to the day (the 20th), list style, add a task
+        step("list and task")
         app.buttons["日"].tap()
         let listToggle = app.buttons["切换到清单"]
         XCTAssertTrue(listToggle.waitForExistence(timeout: 3))

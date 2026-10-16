@@ -48,13 +48,21 @@ jobs:
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet build
 
       - name: UI smoke test in the iOS Simulator
+        timeout-minutes: 15
         run: |
           set -o pipefail
           UDID=$(xcrun simctl create OneGlanceCI "iPhone 16" 2>/dev/null || xcrun simctl create OneGlanceCI "iPhone 15")
           xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          # Skip the first-run "slide to type" keyboard tip, which can block typing
+          xcrun simctl spawn "$UDID" defaults write com.apple.Preferences DidShowContinuousPathIntroduction -bool true || true
+          xcrun simctl spawn "$UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool true || true
           # Calendar/Reminders access without the system prompt
           for service in calendar reminders; do
             xcrun simctl privacy "$UDID" grant "$service" io.github.woodyair233.oneglance || true
           done
           xcodebuild test -project CalendarApp/OneGlance.xcodeproj -scheme OneGlance \
-            -destination "id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet
+            -destination "id=$UDID" -derivedDataPath build-tests \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+            2>&1 | grep -vE '^(CompileSwift|SwiftCompile|SwiftDriver|Ld |CodeSign|ProcessInfoPlistFile|CopySwiftLibs|    cd |    export |    /Applications)'
