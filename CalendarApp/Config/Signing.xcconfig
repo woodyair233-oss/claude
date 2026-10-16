@@ -1,0 +1,11 @@
+// Signing settings shared by the app and the widget.
+//
+// To install on your iPhone with a free Apple ID ("Personal Team"):
+//   1. Xcode → Settings → Accounts → add your Apple ID.
+//   2. Put your Team ID below (Xcode shows it under Signing & Capabilities),
+//      or simply pick the team in Signing & Capabilities for both targets.
+//   3. If Xcode says the bundle identifier is taken, change BUNDLE_ID_PREFIX
+//      to something unique, e.g. com.yourname.
+DEVELOPMENT_TEAM =
+BUNDLE_ID_PREFIX = io.github.woodyair233
+CODE_SIGN_STYLE = Automatic

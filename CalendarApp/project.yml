@@ -1,0 +1,73 @@
+# XcodeGen spec. OneGlance.xcodeproj is generated from this file and committed,
+# so you only need XcodeGen if you change the target layout:
+#   brew install xcodegen && xcodegen --spec CalendarApp/project.yml
+name: OneGlance
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: zh-Hans
+  createIntermediateGroups: true
+  groupSortPosition: top
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+packages:
+  GlanceCore:
+    path: Packages/GlanceCore
+targets:
+  OneGlance:
+    type: application
+    platform: iOS
+    sources:
+      - path: OneGlance
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: OneGlance
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).oneglance
+        INFOPLIST_FILE: OneGlance/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: GlanceCore
+      - target: OneGlanceWidget
+        embed: true
+  OneGlanceWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: OneGlanceWidget
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: OneGlanceWidget
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).oneglance.widget
+        INFOPLIST_FILE: OneGlanceWidget/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/Frameworks @executable_path/../../Frameworks
+    dependencies:
+      - package: GlanceCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+schemes:
+  OneGlance:
+    build:
+      targets:
+        OneGlance: all
+        OneGlanceWidget: all
+    run:
+      config: Debug
+    archive:
+      config: Release

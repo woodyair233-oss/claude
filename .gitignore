@@ -2,3 +2,8 @@ bin/
 obj/
 .vs/
 *.user
+xcuserdata/
+DerivedData/
+.build/
+.swiftpm/
+*.xcuserstate
