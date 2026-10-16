@@ -80,6 +80,7 @@ CalendarApp/
 │   ├── Model/                 EventKit 读写（CalendarStore）、设置、数据类型
 │   └── Views/                 日 / 周 / 月视图、时间轴、快速新增、编辑面板、设置
 ├── OneGlanceWidget/           小组件与“完成待办”的 App Intent
+├── OneGlanceUITests/          模拟器里的端到端 UI 测试
 ├── Packages/GlanceCore/       纯逻辑（不依赖 iOS，可在 Linux 测试）
 │   ├── Sources/GlanceCore/    快速新增解析、时间轴排版、负荷计算、班次
 │   └── Tests/                 单元测试
@@ -89,4 +90,5 @@ CalendarApp/
 
 - 跑核心逻辑测试：`swift test --package-path CalendarApp/Packages/GlanceCore`
 - 新增或删除源文件后重新生成项目：`brew install xcodegen && cd CalendarApp && xcodegen`
-- GitHub Actions（`.github/workflows/ios.yml`）每次推送都会在 macOS 上编译 App 与小组件，并跑测试。
+- GitHub Actions（`.github/workflows/ios.yml`）每次推送都会在 macOS 上编译 App 与小组件、跑核心逻辑测试，并在 iOS 模拟器里跑一遍 UI 自动化测试（`OneGlanceUITests`）：快速新增日程 → 拖动改时间 → 拉底边改时长 → 周 / 月视图 → 排班刷子排一个夜班 → 清单模式新增待办。
+- 在 Xcode 里按 ⌘U 也可以在模拟器上跑同一套 UI 测试（会在模拟器的日历里建测试数据，不影响你的 iPhone）。
