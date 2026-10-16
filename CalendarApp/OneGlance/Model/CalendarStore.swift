@@ -472,6 +472,8 @@ final class CalendarStore: ObservableObject {
         guard let r = ekReminders[task.id] else { return }
         do {
             try ek.remove(r, commit: true)
+            ekReminders[task.id] = nil
+            applyReminders(Array(ekReminders.values))
         } catch {
             report(error)
         }
@@ -500,6 +502,9 @@ final class CalendarStore: ObservableObject {
     private func saveReminder(_ r: EKReminder) -> Bool {
         do {
             try ek.save(r, commit: true)
+            // Show the change right away; the full re-fetch below is asynchronous
+            ekReminders[r.calendarItemIdentifier] = r
+            applyReminders(Array(ekReminders.values))
             reload()
             return true
         } catch {

@@ -22,6 +22,12 @@ public enum TimelineLayout {
         /// columns to its right are free for its whole duration.
         public let span: Int
 
+        public init(column: Int, columnCount: Int, span: Int) {
+            self.column = column
+            self.columnCount = columnCount
+            self.span = span
+        }
+
         public var widthFraction: Double { Double(span) / Double(columnCount) }
         public var xFraction: Double { Double(column) / Double(columnCount) }
     }
