@@ -23,12 +23,20 @@
 		A3F0EE13BFA7062720022BBF /* Editors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A89145D2F9A7085418C58BBE /* Editors.swift */; };
 		A649D1C506FF81BBE23D4D7A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF703EC10C9D272883937E40 /* WidgetKit.framework */; };
 		A8EACA737188D2547CDA60F8 /* GlanceCore in Frameworks */ = {isa = PBXBuildFile; productRef = D0598A586B2797D77F5D4730 /* GlanceCore */; };
+		C0A73E311F93C61796C12DB7 /* OneGlanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222CE33E5AEA69FFFFE1E7A3 /* OneGlanceUITests.swift */; };
 		C8423CC280D546CEE57713ED /* OneGlanceWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 781A7CE178DDB656C2A429B4 /* OneGlanceWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E7C142E27E3F2446293BA73B /* DayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15525ED59EA3A1720A81A5C2 /* DayViews.swift */; };
 		E82FFB9197B53CC22055417F /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A7DCCDE2B8F67FFCB57441 /* Preferences.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		137AC8A30C5EFEBBAF213752 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 43702330C66F5A23B5A76A8A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 008708CDE2E1D44CBAE14B24;
+			remoteInfo = OneGlance;
+		};
 		9095B1059E11497B9698250E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 43702330C66F5A23B5A76A8A /* Project object */;
@@ -59,6 +67,7 @@
 		0ED57F14FEB136167A4EB889 /* OneGlanceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneGlanceApp.swift; sourceTree = "<group>"; };
 		15525ED59EA3A1720A81A5C2 /* DayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayViews.swift; sourceTree = "<group>"; };
 		1A54541ACF5EC306727A764F /* QuickAddBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddBar.swift; sourceTree = "<group>"; };
+		222CE33E5AEA69FFFFE1E7A3 /* OneGlanceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneGlanceUITests.swift; sourceTree = "<group>"; };
 		27979AAAF3EDCAD788BBC6AF /* CalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStore.swift; sourceTree = "<group>"; };
 		348D6C183A666C6B0DEF061C /* TodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayWidget.swift; sourceTree = "<group>"; };
 		4B8D3589F1EFFD6938D1A25E /* MonthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthView.swift; sourceTree = "<group>"; };
@@ -67,6 +76,7 @@
 		78D2E3E9744377A1154E8B36 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		91CC52AD02302E0D0E1CEE88 /* GlanceCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GlanceCore; path = Packages/GlanceCore; sourceTree = SOURCE_ROOT; };
 		A89145D2F9A7085418C58BBE /* Editors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Editors.swift; sourceTree = "<group>"; };
+		C922982705069C355940C1CC /* OneGlanceUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OneGlanceUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C9DF3BD3DFF16854C5C852BB /* WeekView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekView.swift; sourceTree = "<group>"; };
 		CA6AA75A7E7317698DDCECFA /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		D543837E426254D256FF053C /* TimeGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeGrid.swift; sourceTree = "<group>"; };
@@ -141,6 +151,14 @@
 			path = Model;
 			sourceTree = "<group>";
 		};
+		6442F706C106DD4DA4A51F6D /* OneGlanceUITests */ = {
+			isa = PBXGroup;
+			children = (
+				222CE33E5AEA69FFFFE1E7A3 /* OneGlanceUITests.swift */,
+			);
+			path = OneGlanceUITests;
+			sourceTree = "<group>";
+		};
 		7BCBBEC235FE44852F881755 /* Config */ = {
 			isa = PBXGroup;
 			children = (
@@ -154,6 +172,7 @@
 			children = (
 				7BCBBEC235FE44852F881755 /* Config */,
 				056302940F17F6C5D3E9D381 /* OneGlance */,
+				6442F706C106DD4DA4A51F6D /* OneGlanceUITests */,
 				B39F9AA1909F1763C7E1FFFF /* OneGlanceWidget */,
 				DA1E4F8DFD42D54D3C24A747 /* Packages */,
 				FA55A55A689C3C7BE14BB3A8 /* Frameworks */,
@@ -190,6 +209,7 @@
 			isa = PBXGroup;
 			children = (
 				00DF9048E8C28F6D0C6C4151 /* OneGlance.app */,
+				C922982705069C355940C1CC /* OneGlanceUITests.xctest */,
 				781A7CE178DDB656C2A429B4 /* OneGlanceWidget.appex */,
 			);
 			name = Products;
@@ -219,6 +239,24 @@
 			productName = OneGlance;
 			productReference = 00DF9048E8C28F6D0C6C4151 /* OneGlance.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B7507E5D440584EFE8B755E2 /* OneGlanceUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0EC5AA05B2599C998A195192 /* Build configuration list for PBXNativeTarget "OneGlanceUITests" */;
+			buildPhases = (
+				181DE8840EC8E07E9A348B3F /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EEEB13C8BD9BD80180E56E4B /* PBXTargetDependency */,
+			);
+			name = OneGlanceUITests;
+			packageProductDependencies = (
+			);
+			productName = OneGlanceUITests;
+			productReference = C922982705069C355940C1CC /* OneGlanceUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		FC3E000E36BE71CF35B51377 /* OneGlanceWidget */ = {
 			isa = PBXNativeTarget;
@@ -252,6 +290,11 @@
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
+					B7507E5D440584EFE8B755E2 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 008708CDE2E1D44CBAE14B24;
+					};
 					FC3E000E36BE71CF35B51377 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -276,6 +319,7 @@
 			projectRoot = "";
 			targets = (
 				008708CDE2E1D44CBAE14B24 /* OneGlance */,
+				B7507E5D440584EFE8B755E2 /* OneGlanceUITests */,
 				FC3E000E36BE71CF35B51377 /* OneGlanceWidget */,
 			);
 		};
@@ -312,6 +356,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		181DE8840EC8E07E9A348B3F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C0A73E311F93C61796C12DB7 /* OneGlanceUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B72C6AEFAFB5A2E0F2A280AE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -323,6 +375,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		EEEB13C8BD9BD80180E56E4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 008708CDE2E1D44CBAE14B24 /* OneGlance */;
+			targetProxy = 137AC8A30C5EFEBBAF213752 /* PBXContainerItemProxy */;
+		};
 		FCF563998FD718232E9411DB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FC3E000E36BE71CF35B51377 /* OneGlanceWidget */;
@@ -331,6 +388,23 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		14EBA610D875F0608934DECB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID_PREFIX).oneglance.uitests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OneGlance;
+			};
+			name = Debug;
+		};
 		353C8B430BB63050BBF49EE7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -444,6 +518,23 @@
 			};
 			name = Debug;
 		};
+		850EA5988E0F179CE1A0E1DF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BUNDLE_ID_PREFIX).oneglance.uitests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OneGlance;
+			};
+			name = Release;
+		};
 		C69E219FB9C82E9F7AB37C0A /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 653E73571E3C9D468D415650 /* Signing.xcconfig */;
@@ -527,6 +618,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0EC5AA05B2599C998A195192 /* Build configuration list for PBXNativeTarget "OneGlanceUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				14EBA610D875F0608934DECB /* Debug */,
+				850EA5988E0F179CE1A0E1DF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		57AC456BAD7DF8401F854CDA /* Build configuration list for PBXNativeTarget "OneGlanceWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

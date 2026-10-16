@@ -294,7 +294,25 @@ final class CalendarStore: ObservableObject {
     }
 
     var defaultReminderList: EKCalendar? {
-        prefs.defaultReminderListID.flatMap { ek.calendar(withIdentifier: $0) } ?? ek.defaultCalendarForNewReminders()
+        prefs.defaultReminderListID.flatMap { ek.calendar(withIdentifier: $0) }
+            ?? ek.defaultCalendarForNewReminders()
+            ?? editableLists.first
+    }
+
+    /// Creates a "待办" list when the account has no reminder list at all.
+    private func makeReminderList() -> EKCalendar? {
+        let list = EKCalendar(for: .reminder, eventStore: ek)
+        list.title = "待办"
+        guard let source = ek.defaultCalendarForNewEvents?.source
+                ?? ek.sources.first(where: { $0.sourceType == .local }) else { return nil }
+        list.source = source
+        do {
+            try ek.saveCalendar(list, commit: true)
+            return list
+        } catch {
+            report(error)
+            return nil
+        }
     }
 
     var shiftCalendar: EKCalendar? {
@@ -458,7 +476,7 @@ final class CalendarStore: ObservableObject {
         if let listID = draft.listID, let list = ek.calendar(withIdentifier: listID) {
             r.calendar = list
         } else if r.calendar == nil {
-            r.calendar = defaultReminderList
+            r.calendar = defaultReminderList ?? makeReminderList()
         }
         apply(due: draft.hasDate ? draft.due : nil, hasTime: draft.hasDate && draft.hasTime, to: r)
         if r.isCompleted != draft.isCompleted { r.isCompleted = draft.isCompleted }

@@ -39,11 +39,13 @@ struct QuickAddBar: View {
                     } label: {
                         Image(systemName: "plus.circle").font(.title2)
                     }
+                    .accessibilityLabel("新建")
                 }
                 TextField("快速新增：明天下午3点 开会 1小时", text: $text)
                     .focused($focused)
                     .submitLabel(.done)
                     .onSubmit(submit)
+                    .accessibilityIdentifier("quickAdd")
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .background(Color(.secondarySystemBackground), in: Capsule())
@@ -51,6 +53,7 @@ struct QuickAddBar: View {
                     Button(action: submit) {
                         Image(systemName: "arrow.up.circle.fill").font(.title2)
                     }
+                    .accessibilityLabel("新增")
                     .disabled(result.title.isEmpty && result.kind != .shift)
                 }
             }

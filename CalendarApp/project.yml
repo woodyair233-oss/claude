@@ -61,6 +61,19 @@ targets:
       - package: GlanceCore
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
+  OneGlanceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: OneGlanceUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).oneglance.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: OneGlance
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - target: OneGlance
 schemes:
   OneGlance:
     build:
@@ -69,5 +82,9 @@ schemes:
         OneGlanceWidget: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - OneGlanceUITests
     archive:
       config: Release

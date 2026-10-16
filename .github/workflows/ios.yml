@@ -46,3 +46,15 @@ jobs:
           xcodebuild -project CalendarApp/OneGlance.xcodeproj -scheme OneGlance \
             -configuration Release -destination 'generic/platform=iOS' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet build
+
+      - name: UI smoke test in the iOS Simulator
+        run: |
+          set -o pipefail
+          UDID=$(xcrun simctl create OneGlanceCI "iPhone 16" 2>/dev/null || xcrun simctl create OneGlanceCI "iPhone 15")
+          xcrun simctl boot "$UDID"
+          # Calendar/Reminders access without the system prompt
+          for service in calendar reminders; do
+            xcrun simctl privacy "$UDID" grant "$service" io.github.woodyair233.oneglance || true
+          done
+          xcodebuild test -project CalendarApp/OneGlance.xcodeproj -scheme OneGlance \
+            -destination "id=$UDID" -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet

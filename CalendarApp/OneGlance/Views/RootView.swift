@@ -133,13 +133,16 @@ struct HeaderView: View {
                 Spacer(minLength: 4)
                 Button { step(-1) } label: { Image(systemName: "chevron.left") }
                     .frame(width: 34, height: 34)
+                    .accessibilityLabel("上一页")
                 Button("今天") { withAnimation { selectedDay = cal.startOfDay(for: Date()) } }
                     .font(.subheadline.weight(.medium))
                     .disabled(cal.isDateInToday(selectedDay) && mode == .day)
                 Button { step(1) } label: { Image(systemName: "chevron.right") }
                     .frame(width: 34, height: 34)
+                    .accessibilityLabel("下一页")
                 Button { showSettings = true } label: { Image(systemName: "gearshape") }
                     .frame(width: 34, height: 34)
+                    .accessibilityLabel("设置")
             }
             HStack(spacing: 8) {
                 Picker("视图", selection: $mode) {
