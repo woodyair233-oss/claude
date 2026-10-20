@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'CalendarApp/**'
+      - '!CalendarApp/Scriptable/**'
       - '.github/workflows/ios.yml'
   pull_request:
     paths:
       - 'CalendarApp/**'
+      - '!CalendarApp/Scriptable/**'
       - '.github/workflows/ios.yml'
   workflow_dispatch:
 

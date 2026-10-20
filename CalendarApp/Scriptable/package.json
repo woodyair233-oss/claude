@@ -1,0 +1,13 @@
+{
+  "name": "oneglance-scriptable",
+  "private": true,
+  "description": "一览 – Scriptable version: build and tests",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/core.test.mjs && node build.mjs --check && node --test test/ui.test.mjs test/scriptable.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

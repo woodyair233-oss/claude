@@ -1,6 +1,6 @@
 # 电源助手（PowerHelper）
 
-> 本仓库另含 iOS 日历与任务排程 App「一览」，见 [CalendarApp/README.md](CalendarApp/README.md)。
+> 本仓库另含 iOS 日历与任务排程 App「一览」：原生版见 [CalendarApp/README.md](CalendarApp/README.md)，免签名的 Scriptable 版见 [CalendarApp/Scriptable/README.md](CalendarApp/Scriptable/README.md)。
 
 Windows 小工具：设置电脑闲置多久后自动**关闭屏幕、睡眠、休眠**，设置电源键与合盖动作，并提供**只关屏幕、电脑继续运行**的“立即息屏”（可用快捷键 `Ctrl+Alt+S`）。
 
