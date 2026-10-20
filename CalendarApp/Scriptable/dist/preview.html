@@ -16,12 +16,10 @@
   --accent: #286be6;
   --accent-soft: rgba(40, 107, 230, 0.14);
   --red: #e5383b;
-  --orange: #f08c00;
   --heat: 249, 115, 22;
   --sheet: #ffffff;
+  --inbox: #fff8ec;
   --shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  --gutter: 46px;
-  --hh: 56;
   --vh: 100dvh;
   color-scheme: light dark;
 }
@@ -37,8 +35,8 @@
     --accent: #5a92ff;
     --accent-soft: rgba(90, 146, 255, 0.2);
     --red: #ff5a5f;
-    --orange: #ffa53a;
     --sheet: #1c1c1e;
+    --inbox: #1f1a12;
     --shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
   }
 }
@@ -59,7 +57,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 input, select, textarea { font: inherit; color: inherit; }
 .mono { font-variant-numeric: tabular-nums; }
 .muted { color: var(--text2); }
-.noselect, .blk, .chip, .surface, .cell, .strip-day {
+.row, .chip, .cell, .strip-day, .wday-head {
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
 
@@ -72,201 +70,128 @@ input, select, textarea { font: inherit; color: inherit; }
 #main { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
 
 /* ------------------------------------------------------------ header */
-.hdr { padding: 6px 12px 6px; display: flex; flex-direction: column; gap: 7px; }
+.hdr { padding: 6px 12px 6px; display: flex; flex-direction: column; gap: 7px; border-bottom: 0.5px solid var(--sep); }
 .hdr-row { display: flex; align-items: center; gap: 2px; }
 .hdr-title { flex: 1; min-width: 0; }
 .hdr-title h1 { font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hdr-title p { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: var(--accent); font-size: 18px; }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: var(--accent); font-size: 20px; }
 .icon-btn:active { background: var(--surface); }
 .text-btn { color: var(--accent); font-weight: 500; padding: 6px 8px; border-radius: 8px; }
 .text-btn:disabled { color: var(--text3); }
-.seg-row { display: flex; gap: 8px; align-items: center; }
-.seg { flex: 1; display: flex; background: var(--surface); border-radius: 9px; padding: 2px; }
-.seg button { flex: 1; padding: 5px 0; border-radius: 7px; font-size: 14px; font-weight: 500; color: var(--text); }
+.text-btn.strong { font-weight: 700; }
+.text-btn.wide { width: 100%; text-align: left; }
+.seg { display: flex; background: var(--surface); border-radius: 9px; padding: 2px; }
+.seg button { flex: 1; padding: 5px 0; border-radius: 7px; font-size: 14px; font-weight: 500; }
 .seg button.on { background: var(--bg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
 @media (prefers-color-scheme: dark) { .seg button.on { background: #636366; } }
-.style-btn { height: 32px; padding: 0 10px; border-radius: 9px; background: var(--surface); color: var(--accent); font-size: 13px; font-weight: 600; }
 
 .strip { display: flex; gap: 2px; touch-action: pan-y; }
-.strip-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 0; border-radius: 10px; }
+.strip-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 0 4px; border-radius: 10px; }
 .strip-day .wd { font-size: 11px; color: var(--text2); }
 .strip-day .num { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; font-size: 16px; font-variant-numeric: tabular-nums; }
 .strip-day.today .num { color: var(--accent); font-weight: 700; }
 .strip-day.sel .num { background: var(--accent); color: #fff; font-weight: 700; }
-.strip-day .mark { height: 14px; display: grid; place-items: center; }
-.loadbar { width: 18px; height: 4px; border-radius: 2px; }
-.drop-hot { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-soft); }
+.loadbar { width: 18px; height: 4px; border-radius: 2px; flex: none; }
+.drop-hot { outline: 2px solid var(--accent); outline-offset: -2px; background-color: var(--accent-soft) !important; }
 
-.badge {
-  display: inline-grid; place-items: center; min-width: 16px; height: 15px; padding: 0 3px;
-  border-radius: 3px; font-size: 10px; font-weight: 700; color: #fff; line-height: 1;
-}
-
-/* ------------------------------------------------------------ tray */
-.tray { padding: 4px 12px 6px; display: flex; flex-direction: column; gap: 6px; border-bottom: 0.5px solid var(--sep); }
-.tray-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); }
-.tray-head .grow { flex: 1; }
-.pill-btn { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 12px; background: var(--surface); color: var(--accent); }
-.tray-body { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-.inbox { padding: 8px; border-radius: 10px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
-.inbox .chips { max-height: 140px; overflow-y: auto; }
-.hint { font-size: 11px; color: var(--text2); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip {
-  display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
-  padding: 4px 10px 4px 7px; border-radius: 16px; font-size: 14px;
-  background: color-mix(in srgb, var(--c) 14%, transparent);
-}
-.chip .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.chip.done { opacity: 0.55; }
-.chip.done .t { text-decoration: line-through; }
-.chip.overdue { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 60%, transparent); }
-.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; margin-left: 2px; }
-.chip .sub { font-size: 11px; color: var(--text2); flex: none; }
-.chip .sub.red { color: var(--red); }
-.check {
-  width: 19px; height: 19px; border-radius: 50%; border: 1.6px solid var(--c); flex: none;
-  display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700;
-}
-.check.on { background: var(--c); }
-.prio { color: var(--red); font-weight: 700; font-size: 12px; }
-.shift-banner {
-  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 9px;
-  background: color-mix(in srgb, var(--c) 15%, transparent); font-size: 14px;
-}
-.shift-banner .name { font-weight: 600; }
-.shift-banner .warn { margin-left: auto; color: var(--orange); font-size: 12px; white-space: nowrap; }
-
-/* ------------------------------------------------------------ time grid */
-.grid-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; position: relative; overscroll-behavior: contain; }
-.grid { position: relative; height: calc(var(--hh) * 24px); }
-.hour { position: absolute; left: 0; right: 0; height: 0; }
-.hour::after { content: ""; position: absolute; left: var(--gutter); right: 0; top: 0; border-top: 0.5px solid var(--sep); }
-.hour.half::after { border-top-style: dotted; opacity: 0.6; }
-.hour span { position: absolute; left: 0; width: calc(var(--gutter) - 6px); text-align: right; top: -7px; font-size: 11px; color: var(--text2); font-variant-numeric: tabular-nums; }
-.surface { position: absolute; top: 0; bottom: 0; left: var(--gutter); right: 0; }
-.colbg { position: absolute; top: 0; bottom: 0; border-left: 0.5px solid var(--sep); pointer-events: none; }
-.colbg.today { background: var(--accent-soft); opacity: 0.5; }
-.blk {
-  position: absolute;
-  top: calc(var(--s) * var(--hh) * 1px / 60);
-  height: max(var(--minh, 22px), calc(var(--len) * var(--hh) * 1px / 60 - 1px));
-  border-radius: 5px; overflow: hidden;
-  background: color-mix(in srgb, var(--c) 24%, var(--bg));
-  border-left: 3px solid var(--c);
-  padding: 2px 3px 2px 5px; font-size: 12px; line-height: 1.25;
-  transition: box-shadow 0.15s, transform 0.15s;
-}
-.blk.task { background: color-mix(in srgb, var(--c) 10%, var(--bg)); border: 1px dashed var(--c); }
-@media (prefers-color-scheme: dark) {
-  .blk { background: color-mix(in srgb, var(--c) 36%, var(--bg)); }
-  .blk.task { background: color-mix(in srgb, var(--c) 16%, var(--bg)); }
-}
-.blk.ro { opacity: 0.85; }
-.blk .bt { font-weight: 600; display: flex; gap: 3px; align-items: flex-start; }
-.blk .bt .tt { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines, 2); }
-.blk .bs { color: var(--text2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-.blk .check { width: 15px; height: 15px; font-size: 10px; margin-top: 1px; }
-.blk .handle { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; display: grid; place-items: end center; padding-bottom: 2px; }
-.blk .handle::after { content: ""; width: 22px; height: 4px; border-radius: 2px; background: var(--c); opacity: 0.75; }
-.blk.short .handle::after { opacity: 0; }
-.blk.compact { font-size: 10px; padding: 1px 2px 1px 3px; border-left-width: 2px; }
-.blk.dragging { z-index: 10; box-shadow: var(--shadow); transform: scale(1.02); }
-.blk .tip {
-  position: absolute; top: 2px; right: 3px; font-size: 11px; font-weight: 700; padding: 1px 5px;
-  border-radius: 8px; background: var(--sheet); box-shadow: var(--shadow);
-}
-.now { position: absolute; height: 0; border-top: 1.5px solid var(--red); pointer-events: none; z-index: 5; }
-.now::before { content: ""; position: absolute; left: -4px; top: -4.5px; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
-.ghost {
-  position: absolute; border-radius: 6px; background: var(--accent-soft); border: 1.5px dashed var(--accent);
-  font-size: 11px; font-weight: 700; padding: 3px 5px; pointer-events: none; z-index: 8; font-variant-numeric: tabular-nums;
-}
-.floating {
-  position: fixed; z-index: 100; pointer-events: none; padding: 6px 12px; border-radius: 16px;
-  background: var(--sheet); box-shadow: var(--shadow); font-size: 14px; transform: translate(-50%, -130%);
-}
-
-/* week */
-.wk-head { display: flex; padding-left: 30px; }
-.wk-head .strip-day { padding: 2px 0 4px; }
-.wk-head .num { width: 26px; height: 26px; font-size: 14px; }
-.wk-head .strip-day.today .num { background: var(--accent); color: #fff; }
-.wk-allday { display: flex; border-bottom: 0.5px solid var(--sep); padding-bottom: 4px; }
-.wk-allday .lab { width: 30px; font-size: 9px; color: var(--text2); text-align: center; }
-.wk-allday .cell-ad { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 0 1px; }
-.mini { font-size: 9px; font-weight: 500; padding: 0 2px; border-radius: 3px; width: 100%; text-align: center;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: color-mix(in srgb, var(--c) 25%, transparent); }
-.cnt { font-size: 9px; font-weight: 600; color: var(--text2); }
-.cnt.red { color: var(--red); }
-
-/* ------------------------------------------------------------ list */
-.list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 20px; }
-.sec { padding: 10px 14px 4px; font-size: 13px; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 6px; }
-.row { display: flex; align-items: center; gap: 10px; padding: 7px 14px; min-height: 40px; border-bottom: 0.5px solid var(--sep); }
-.row .time { width: 44px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
-.row .time small { display: block; color: var(--text2); font-size: 12px; }
+/* ------------------------------------------------------------ rows */
+.list, .week, .digest { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.list { padding-bottom: 12px; touch-action: pan-y; }
+.list-end { height: 24px; }
+.sec { padding: 12px 14px 4px; font-size: 13px; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+.sec.red { color: var(--red); }
+.sec .pill-btn { margin-left: auto; }
+.pill-btn { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; background: var(--surface); color: var(--accent); }
+.row { display: flex; align-items: center; gap: 10px; padding: 9px 14px; min-height: 44px; border-bottom: 0.5px solid var(--sep); background: var(--bg); }
 .row .bar { width: 4px; align-self: stretch; border-radius: 2px; background: var(--c); flex: none; }
 .row .body { flex: 1; min-width: 0; }
-.row .body .t { font-size: 15px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.row .body .d { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t { font-size: 16px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.row .d { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row.done .t { text-decoration: line-through; color: var(--text2); }
-.row .check { width: 22px; height: 22px; font-size: 13px; }
-.row .acts { display: flex; gap: 4px; flex: none; }
-.row .acts button { font-size: 12px; padding: 4px 8px; border-radius: 8px; background: var(--surface); color: var(--accent); }
-.gap-row { padding: 4px 14px 4px 68px; font-size: 12px; color: var(--text2); }
-.now-row { display: flex; align-items: center; gap: 6px; padding: 2px 14px; color: var(--red); font-size: 12px; font-weight: 700; }
-.now-row::after { content: ""; flex: 1; border-top: 1px solid var(--red); }
+.row.compact { min-height: 34px; padding: 5px 12px; gap: 8px; }
+.row.compact .t { font-size: 15px; -webkit-line-clamp: 2; }
+.row.compact .check { width: 19px; height: 19px; font-size: 11px; }
+.row .more { font-size: 18px; color: var(--text2); width: 34px; height: 30px; border-radius: 8px; flex: none; }
+.row.lifted, .chip.lifted { opacity: 0.35; }
+.check {
+  width: 22px; height: 22px; border-radius: 50%; border: 1.6px solid var(--c); flex: none;
+  display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 700;
+}
+.check.on { background: var(--c); }
+.prio { color: var(--red); font-weight: 700; font-size: 13px; }
 .empty { padding: 10px 14px; color: var(--text2); font-size: 14px; }
+.empty.small { font-size: 13px; padding: 6px 12px; }
+.floating {
+  position: fixed; z-index: 100; pointer-events: none; padding: 7px 13px; border-radius: 16px; max-width: 80vw;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: var(--sheet); box-shadow: var(--shadow); font-size: 14px; transform: translate(-50%, -140%);
+}
 
-/* ------------------------------------------------------------ month */
+/* week: seven days stacked */
+.week { padding-bottom: 12px; }
+.wday { border-bottom: 6px solid var(--surface); }
+.wday-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; position: sticky; top: 0; background: var(--bg); z-index: 1; }
+.wday-head .wd { font-weight: 700; font-size: 15px; }
+.wday-head .dn { color: var(--text2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.wday-head .grow { flex: 1; }
+.wday-head .cnt { font-size: 12px; color: var(--text2); }
+.wday.today .wd { color: var(--accent); }
+.wday.sel .wday-head { background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg); }
+.wday-items .row { border-bottom: 0; }
+
+/* month */
 .month { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 8px; gap: 6px; }
-.mo-wd { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding-top: 4px; }
+.mo-wd { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding-top: 6px; }
 .mo-wd span { text-align: center; font-size: 11px; color: var(--text2); }
 .mo-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; touch-action: pan-y; }
 .cell {
-  position: relative; min-height: 50px; border-radius: 8px; display: flex; flex-direction: column;
-  align-items: center; gap: 1px; padding-top: 3px; background: rgba(var(--heat), var(--a, 0));
+  position: relative; min-height: 44px; border-radius: 8px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px; background: rgba(var(--heat), var(--a, 0));
 }
 .cell .n { font-size: 15px; font-variant-numeric: tabular-nums; }
+.cell .cnt { font-size: 10px; font-weight: 600; color: var(--text2); min-height: 12px; }
 .cell.today .n { color: var(--accent); font-weight: 700; }
 .cell.hot .n, .cell.hot .cnt { color: #fff; }
 .cell.out { opacity: 0.35; }
 .cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
-.cell .mk { height: 14px; display: grid; place-items: center; }
-.cell .warn { position: absolute; top: 2px; right: 3px; font-size: 9px; color: var(--orange); }
+.dot-red { position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
 .mo-sum { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); }
 .legend { display: flex; align-items: center; gap: 2px; }
 .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 .mo-sum .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.brush-btn { padding: 4px 10px; border-radius: 14px; background: var(--surface); font-size: 12px; font-weight: 600; color: var(--text2); white-space: nowrap; }
-.brush-btn.on { background: var(--accent); color: #fff; }
-.brushbar { padding: 8px; border-radius: 10px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; }
-.brushbar .opts { display: flex; gap: 6px; overflow-x: auto; }
-.brush-opt { display: inline-flex; gap: 4px; align-items: center; padding: 4px 9px; border-radius: 14px; white-space: nowrap; font-size: 14px;
-  background: color-mix(in srgb, var(--c) 10%, transparent); }
-.brush-opt.on { background: color-mix(in srgb, var(--c) 28%, transparent); box-shadow: inset 0 0 0 1.5px var(--c); }
-.digest { flex: 1; min-height: 0; overflow-y: auto; border-top: 0.5px solid var(--sep); padding: 6px 2px 16px; display: flex; flex-direction: column; gap: 6px; }
-.digest .head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; padding: 0 4px; }
-.digest .row { padding: 6px 4px; }
+.digest { border-top: 0.5px solid var(--sep); padding: 6px 0 12px; margin: 0 -8px; }
+.digest .head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 15px; padding: 2px 12px 4px; }
+
+/* ------------------------------------------------------------ to-do area */
+.inbox { background: var(--inbox); border-top: 0.5px solid var(--sep); }
+.inbox-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; }
+.inbox-head .title { font-weight: 700; font-size: 15px; }
+.inbox-head .count { font-size: 12px; font-weight: 700; color: #fff; background: #f08c00; border-radius: 10px; padding: 1px 7px; }
+.inbox-head .hint { flex: 1; font-size: 11px; color: var(--text2); text-align: right; }
+.inbox-head .chev { color: var(--text2); font-size: 12px; }
+.inbox-body { max-height: 24vh; overflow-y: auto; padding: 0 12px 10px; -webkit-overflow-scrolling: touch; }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  padding: 6px 12px 6px 8px; border-radius: 18px; font-size: 15px;
+  background: var(--bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent);
+}
+.chip .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.chip .check { width: 18px; height: 18px; }
 
 /* ------------------------------------------------------------ quick add */
 .qa { padding: 7px 12px calc(7px + env(safe-area-inset-bottom)); border-top: 0.5px solid var(--sep); background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
 .qa-row { display: flex; align-items: center; gap: 8px; }
-.qa input {
-  flex: 1; min-width: 0; border: 0; outline: 0; border-radius: 18px; padding: 9px 14px;
-  background: var(--surface); font-size: 16px;
-}
+.qa input { flex: 1; min-width: 0; border: 0; outline: 0; border-radius: 18px; padding: 9px 14px; background: var(--surface); font-size: 16px; }
 .qa .send { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 18px; font-weight: 700; display: grid; place-items: center; }
 .qa .send:disabled { background: var(--text3); }
 .qa .plus { width: 34px; height: 34px; border-radius: 50%; color: var(--accent); font-size: 26px; display: grid; place-items: center; }
 .preview { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.preview:empty { display: none; }
 .preview::-webkit-scrollbar { display: none; }
 .pv { white-space: nowrap; font-size: 12px; padding: 3px 9px; border-radius: 12px; background: var(--surface); }
 .pv.kind { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-.menu { position: absolute; bottom: calc(100% + 6px); left: 10px; background: var(--sheet); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; z-index: 30; }
-.menu button { display: block; width: 100%; text-align: left; padding: 11px 16px; font-size: 15px; border-bottom: 0.5px solid var(--sep); }
 
 /* ------------------------------------------------------------ toast */
 .toast {
@@ -274,7 +199,7 @@ input, select, textarea { font: inherit; color: inherit; }
   display: flex; gap: 12px; align-items: center; padding: 9px 16px; border-radius: 20px;
   background: var(--sheet); box-shadow: var(--shadow); font-size: 14px; max-width: 92%;
 }
-.toast button { color: var(--accent); font-weight: 700; }
+.toast button { color: var(--accent); font-weight: 700; white-space: nowrap; }
 
 /* ------------------------------------------------------------ sheet */
 .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 50; display: flex; align-items: flex-end; }
@@ -284,22 +209,20 @@ input, select, textarea { font: inherit; color: inherit; }
   animation: up 0.2s ease-out;
 }
 @keyframes up { from { transform: translateY(40%); opacity: 0.5; } to { transform: none; opacity: 1; } }
-.sheet-head { display: flex; align-items: center; padding: 8px 8px; border-bottom: 0.5px solid var(--sep); }
-.sheet-head h2 { flex: 1; text-align: center; font-size: 16px; font-weight: 600; }
+.sheet-head { display: flex; align-items: center; padding: 8px; border-bottom: 0.5px solid var(--sep); }
+.sheet-head h2 { flex: 1; text-align: center; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-head .spacer { width: 60px; }
 .sheet-body { overflow-y: auto; padding: 8px 0 24px; -webkit-overflow-scrolling: touch; }
 .form-sec { margin: 10px 14px; background: var(--surface); border-radius: 11px; overflow: hidden; }
-.form-sec > .label { padding: 10px 14px 4px; font-size: 12px; color: var(--text2); background: var(--sheet); margin: -0px; }
 .fsec-title { margin: 14px 28px 4px; font-size: 12px; color: var(--text2); }
 .fsec-foot { margin: 4px 28px 0; font-size: 12px; color: var(--text2); }
 .f { display: flex; align-items: center; gap: 10px; padding: 10px 14px; min-height: 44px; border-bottom: 0.5px solid var(--sep); }
 .f:last-child { border-bottom: 0; }
+.f[hidden] { display: none; }
 .f > label { flex: 1; }
 .f input[type=text], .f textarea { flex: 1; border: 0; outline: 0; background: transparent; font-size: 16px; min-width: 0; }
 .f textarea { resize: none; min-height: 60px; }
-.f input[type=date], .f input[type=time], .f select, .f input[type=number] {
-  border: 0; border-radius: 7px; padding: 5px 8px; background: var(--surface2); font-size: 15px; min-width: 0;
-}
-.f input[type=color] { width: 36px; height: 28px; border: 0; padding: 0; background: none; }
+.f input[type=date], .f select { border: 0; border-radius: 7px; padding: 5px 8px; background: var(--surface2); font-size: 15px; min-width: 0; }
 .switch { position: relative; width: 50px; height: 30px; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
 .switch span { position: absolute; inset: 0; border-radius: 15px; background: var(--surface2); transition: 0.2s; }
@@ -307,16 +230,18 @@ input, select, textarea { font: inherit; color: inherit; }
 .switch input:checked + span { background: #34c759; }
 .switch input:checked + span::after { transform: translateX(20px); }
 .quick { display: flex; gap: 6px; flex-wrap: wrap; }
-.quick button { font-size: 13px; padding: 4px 10px; border-radius: 12px; background: var(--surface2); color: var(--accent); }
+.quick button { font-size: 14px; padding: 5px 12px; border-radius: 14px; background: var(--surface2); color: var(--accent); }
 .segf { display: flex; background: var(--surface2); border-radius: 8px; padding: 2px; flex: 1; }
 .segf button { flex: 1; padding: 5px 0; border-radius: 6px; font-size: 14px; }
 .segf button.on { background: var(--sheet); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); font-weight: 600; }
 .danger { color: var(--red); width: 100%; text-align: center; padding: 12px; font-size: 16px; }
 .note { padding: 10px 14px; font-size: 13px; color: var(--text2); }
-.tpl-head { display: flex; align-items: center; gap: 8px; }
-.stepper { display: flex; align-items: center; gap: 4px; }
+.note.big { text-align: center; font-size: 16px; padding: 18px; color: var(--text); }
+.stepper { display: flex; align-items: center; gap: 8px; }
 .stepper button { width: 32px; height: 28px; border-radius: 7px; background: var(--surface2); font-size: 18px; color: var(--accent); }
+.stepper span { min-width: 24px; text-align: center; }
 .dot-sw { width: 11px; height: 11px; border-radius: 50%; background: var(--c); display: inline-block; flex: none; }
+.version { margin-left: auto; font-size: 12px; }
 
 /* permission / error */
 .center-msg { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 30px; text-align: center; color: var(--text2); }
@@ -326,11 +251,11 @@ input, select, textarea { font: inherit; color: inherit; }
 </style>
 </head>
 <body>
-<div id="app"><header id="hdr"></header><main id="main"></main><footer id="qa"></footer></div>
+<div id="app"><header id="hdr"></header><main id="main"></main><section id="inbox"></section><footer id="qa"></footer></div>
 <div id="sheet-root"></div>
 <script>
 // GlanceCore: pure logic shared by the web UI, the Scriptable runtime and the
-// Node tests. JavaScript port of Packages/GlanceCore (Swift).
+// Node tests. Everything works in whole days; times of day are never shown.
 (function (root) {
   'use strict';
 
@@ -358,23 +283,9 @@ input, select, textarea { font: inherit; color: inherit; }
       x.getHours(), x.getMinutes());
   }
 
+  /** Whole days from `a` to `b` (calendar days, not 24 h blocks). */
   function daysBetween(a, b) {
     return Math.round((startOfDay(b) - startOfDay(a)) / DAY_MS);
-  }
-
-  /** Minutes since midnight of `day` on the clock face; later days continue past 1440. */
-  function minuteOfDay(date, day) {
-    const d = new Date(date);
-    return daysBetween(day, d) * 1440 + d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-  }
-
-  /** The date at `minute` (may exceed 1440 or be negative) on `day`'s clock. */
-  function dateOnDay(day, minute) {
-    const m = Math.round(minute);
-    const shift = Math.floor(m / 1440);
-    const within = m - shift * 1440;
-    const d = startOfDay(day);
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + shift, Math.floor(within / 60), within % 60);
   }
 
   function sameDay(a, b) {
@@ -412,194 +323,49 @@ input, select, textarea { font: inherit; color: inherit; }
     return Array.from({ length: 42 }, (_, i) => addDays(s, i));
   }
 
-  function snap(value, step) {
-    const s = Math.max(step || 1, 1);
-    return Math.round(value / s) * s;
+  /**
+   * Days an event is listed on. Timed events (even overnight ones) show on
+   * the day they start; all-day events on every day they cover.
+   */
+  function eventDays(start, end, allDay) {
+    const s = startOfDay(start);
+    if (!allDay) return [s];
+    const last = startOfDay(new Date(Math.max(+start, +end - 1)));
+    const days = [];
+    for (let d = s; d <= last && days.length < 366; d = addDays(d, 1)) days.push(d);
+    return days;
   }
 
   // ---------------------------------------------------------------- text
 
   const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
-  const pad = (n) => String(n).padStart(2, '0');
 
   const fmt = {
-    hm: (d) => { const x = new Date(d); return `${pad(x.getHours())}:${pad(x.getMinutes())}`; },
     md: (d) => { const x = new Date(d); return `${x.getMonth() + 1}月${x.getDate()}日`; },
     mdw: (d) => { const x = new Date(d); return `${x.getMonth() + 1}月${x.getDate()}日 周${WEEKDAY[x.getDay()]}`; },
     ym: (d) => { const x = new Date(d); return `${x.getFullYear()}年${x.getMonth() + 1}月`; },
     weekdayLetter: (d) => WEEKDAY[new Date(d).getDay()],
-    clock: (minute) => { const m = ((Math.round(minute) % 1440) + 1440) % 1440; return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; },
-    /** "09:00–10:30", "20:00–次日08:00", "09:00–10月20日 18:00" */
-    range(start, end) {
-      const s = new Date(start), e = new Date(end);
-      const endRef = (e.getTime() === startOfDay(e).getTime() && e > s) ? new Date(e - 1) : e;
-      if (sameDay(s, endRef)) return `${fmt.hm(s)}–${fmt.hm(e)}`;
-      if (sameDay(addDays(s, 1), endRef)) return `${fmt.hm(s)}–次日${fmt.hm(e)}`;
-      return `${fmt.hm(s)}–${fmt.md(e)} ${fmt.hm(e)}`;
-    },
+    weekday: (d) => '周' + WEEKDAY[new Date(d).getDay()],
+    /** "今天" / "明天" / "昨天" / "10月18日 周日" */
     relativeDay(d, now) {
-      const t = startOfDay(now || new Date());
-      const diff = daysBetween(t, d);
+      const diff = daysBetween(startOfDay(now || new Date()), d);
       if (diff === 0) return '今天';
       if (diff === 1) return '明天';
+      if (diff === 2) return '后天';
       if (diff === -1) return '昨天';
       return fmt.mdw(d);
     },
-    /** "45分钟", "2小时", "1小时30分" */
-    duration(minutes) {
-      const m = Math.max(0, Math.round(minutes));
-      const h = Math.floor(m / 60), r = m % 60;
-      if (h === 0) return `${r}分钟`;
-      if (r === 0) return `${h}小时`;
-      return `${h}小时${r}分`;
-    },
   };
 
-  // ---------------------------------------------------------------- layout
-
-  /**
-   * Side-by-side layout for overlapping blocks in one column.
-   * @param items [{id, start, end}] in minutes
-   * @returns {[id]: {column, columnCount, span}}
-   */
-  function layoutTimeline(items, minimumLength) {
-    const minLen = minimumLength == null ? 20 : minimumLength;
-    const visualEnd = (it) => Math.max(it.end, it.start + minLen);
-    const sorted = items.slice().sort((a, b) =>
-      a.start - b.start || b.end - a.end || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-    const result = {};
-    let cluster = [];
-    let columnEnds = [];
-    let clusterEnd = -Infinity;
-
-    const flush = () => {
-      const count = columnEnds.length;
-      for (const { item, column } of cluster) {
-        let span = 1;
-        for (let next = column + 1; next < count; next++) {
-          const blocked = cluster.some((o) => o.column === next &&
-            o.item.start < visualEnd(item) && visualEnd(o.item) > item.start);
-          if (blocked) break;
-          span++;
-        }
-        result[item.id] = { column, columnCount: count, span };
-      }
-      cluster = [];
-      columnEnds = [];
-    };
-
-    for (const item of sorted) {
-      if (item.start >= clusterEnd && cluster.length) flush();
-      let column = columnEnds.findIndex((e) => e <= item.start);
-      if (column === -1) {
-        column = columnEnds.length;
-        columnEnds.push(visualEnd(item));
-      } else {
-        columnEnds[column] = visualEnd(item);
-      }
-      cluster.push({ item, column });
-      clusterEnd = Math.max(clusterEnd, visualEnd(item));
-    }
-    flush();
-    return result;
-  }
-
-  /** Union length of [start, end] intervals (minutes), clipped to [lower, upper]. */
-  function busyMinutes(intervals, lower, upper) {
-    const lo = lower == null ? 0 : lower, hi = upper == null ? 1440 : upper;
-    const clipped = intervals
-      .map((i) => [Math.max(i.start, lo), Math.min(i.end, hi)])
-      .filter((i) => i[1] > i[0])
-      .sort((a, b) => a[0] - b[0]);
-    let total = 0, cur = null;
-    for (const i of clipped) {
-      if (cur && i[0] <= cur[1]) cur[1] = Math.max(cur[1], i[1]);
-      else { if (cur) total += cur[1] - cur[0]; cur = i.slice(); }
-    }
-    if (cur) total += cur[1] - cur[0];
-    return total;
-  }
-
-  /** 0 (empty) … 4 (full or over capacity). */
-  function loadLevel(busy, capacity) {
-    if (busy <= 0) return 0;
-    const r = busy / Math.max(capacity, 1);
+  /** 0 (nothing) … 4 (at or over the daily capacity). */
+  function loadLevel(count, capacity) {
+    if (count <= 0) return 0;
+    const r = count / Math.max(capacity || 1, 1);
     if (r < 0.25) return 1;
     if (r < 0.5) return 2;
     if (r < 0.85) return 3;
     return 4;
   }
-
-  /** Gaps of at least `minimumGap` minutes between busy intervals. */
-  function freeGaps(intervals, minimumGap) {
-    const min = minimumGap == null ? 15 : minimumGap;
-    const sorted = intervals.slice().sort((a, b) => a.start - b.start);
-    const gaps = [];
-    let cursor = null;
-    for (const i of sorted) {
-      if (cursor != null && i.start - cursor >= min) gaps.push({ start: cursor, end: i.start });
-      cursor = cursor == null ? i.end : Math.max(cursor, i.end);
-    }
-    return gaps;
-  }
-
-  // ---------------------------------------------------------------- shifts
-
-  const DEFAULT_SHIFTS = [
-    { id: '5A1F0C2E-0001-4C1A-9E0B-000000000001', name: '白班', shortName: '白', color: '#F59E0B', startMinute: 480, durationMinutes: 540, isAllDay: false },
-    { id: '5A1F0C2E-0002-4C1A-9E0B-000000000002', name: '夜班', shortName: '夜', color: '#6366F1', startMinute: 1200, durationMinutes: 720, isAllDay: false },
-    { id: '5A1F0C2E-0003-4C1A-9E0B-000000000003', name: '值班', shortName: '值', color: '#EF4444', startMinute: 480, durationMinutes: 1440, isAllDay: false },
-    { id: '5A1F0C2E-0004-4C1A-9E0B-000000000004', name: '休息', shortName: '休', color: '#10B981', startMinute: 0, durationMinutes: 1440, isAllDay: true },
-  ];
-
-  const shifts = {
-    defaults: () => DEFAULT_SHIFTS.map((t) => Object.assign({}, t)),
-
-    interval(t, day) {
-      if (t.isAllDay) {
-        const s = startOfDay(day);
-        return { start: s, end: addDays(s, 1) };
-      }
-      return { start: dateOnDay(day, t.startMinute), end: dateOnDay(day, t.startMinute + t.durationMinutes) };
-    },
-
-    /** "08:00–17:00", "20:00–次日08:00", "全天" */
-    timeText(t) {
-      if (t.isAllDay) return '全天';
-      const end = t.startMinute + t.durationMinutes;
-      return `${fmt.clock(t.startMinute)}–${end >= 1440 ? '次日' : ''}${fmt.clock(end)}`;
-    },
-
-    /** Template whose name equals the event title, if any. */
-    match(templates, title) {
-      const t = (title || '').trim();
-      return templates.find((x) => x.name === t) || null;
-    },
-
-    /** Hours of rest before each timed shift (sorted by start); null when unknown. */
-    restBefore(list) {
-      let prevEnd = null;
-      return list.slice().sort((a, b) => a.start - b.start).map((s) => {
-        if (s.isAllDay) return null;
-        const rest = prevEnd == null ? null : (new Date(s.start) - prevEnd) / 3600e3;
-        prevEnd = prevEnd == null ? new Date(s.end) : new Date(Math.max(prevEnd, new Date(s.end)));
-        return rest;
-      });
-    },
-
-    /** Counts per template id and total timed minutes for shifts starting in [from, to). */
-    summary(list, from, to) {
-      const counts = {};
-      let minutes = 0;
-      for (const s of list) {
-        const st = new Date(s.start);
-        if (st < from || st >= to) continue;
-        if (s.templateId) counts[s.templateId] = (counts[s.templateId] || 0) + 1;
-        if (!s.isAllDay) minutes += (new Date(s.end) - st) / 60e3;
-      }
-      return { counts, minutes: Math.round(minutes) };
-    },
-  };
 
   // ---------------------------------------------------------------- parser
 
@@ -622,68 +388,13 @@ input, select, textarea { font: inherit; color: inherit; }
   }
 
   const reCache = new Map();
-  function allMatches(pattern, text) {
+  function firstMatch(pattern, text) {
     let re = reCache.get(pattern);
-    if (!re) { re = new RegExp(pattern, 'gi'); reCache.set(pattern, re); }
-    re.lastIndex = 0;
-    return Array.from(text.matchAll(re)).filter((m) => m[0].length > 0);
+    if (!re) { re = new RegExp(pattern, 'i'); reCache.set(pattern, re); }
+    const m = re.exec(text);
+    return m && m[0].length ? m : null;
   }
-  const firstMatch = (pattern, text) => allMatches(pattern, text)[0] || null;
   const cut = (text, m) => text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length);
-
-  // Groups per time: 1 period, 2 hour, 3 colon, 4 colon minutes, 5 点,
-  // 6 Chinese minute word, 7 Chinese minute number, 8 am/pm.
-  const G = 8;
-  const TIME =
-    '(?:(上午|早上|早晨|清晨|中午|下午|午后|傍晚|晚上|夜里|夜间|深夜|凌晨)\\s*)?' +
-    '(\\d{1,2}|' + CN_NUM + ')' +
-    '(?:\\s*([:：])\\s*(\\d{2})|\\s*([点點])(?:\\s*(半|一刻|三刻|(\\d{1,2}|' + CN_NUM + ')\\s*分?))?)?' +
-    '(?:\\s*(am|pm|a\\.m\\.|p\\.m\\.)(?![a-z]))?';
-
-  function clockTime(m, off) {
-    const hourText = m[off + 2];
-    const hour = chineseNumber(hourText);
-    if (hour == null) return null;
-    const colonMinute = m[off + 4], cnWord = m[off + 6], cnNumber = m[off + 7];
-    const ampm = m[off + 8] ? m[off + 8].toLowerCase().replace(/\./g, '') : null;
-    let minute = 0;
-    if (colonMinute != null) minute = parseInt(colonMinute, 10);
-    else if (cnNumber != null) minute = chineseNumber(cnNumber) || 0;
-    else if (cnWord === '半') minute = 30;
-    else if (cnWord === '一刻') minute = 15;
-    else if (cnWord === '三刻') minute = 45;
-    if (hour < 0 || hour > 24 || minute < 0 || minute > 59) return null;
-    // "一点" alone usually means "a little" (早一点到), not 1 o'clock
-    if (hourText === '一' && m[off + 1] == null && cnWord == null && cnNumber == null && ampm == null) return null;
-    return {
-      hour, minute, period: m[off + 1] || null, ampm,
-      isColon: colonMinute != null,
-      hasMarker: colonMinute != null || m[off + 5] != null || ampm != null,
-      is24Hour: hour >= 13 || (hourText.length === 2 && hourText[0] === '0'),
-    };
-  }
-
-  /** Minutes after midnight; `guessAfternoon` reads a bare 1–6 o'clock as p.m. */
-  function resolveTime(t, hint, guessAfternoon) {
-    let h = t.hour;
-    if (t.ampm) {
-      if (t.ampm === 'pm' && h < 12) h += 12;
-      if (t.ampm === 'am' && h === 12) h = 0;
-    } else if (t.period) {
-      if (['下午', '午后', '傍晚', '晚上', '夜里', '夜间', '深夜'].includes(t.period)) {
-        if (h < 12) h += 12; else if (h === 12) h = 24;
-      } else if (t.period === '中午') {
-        if (h < 6) h += 12;
-      } else if (t.period === '凌晨') {
-        if (h === 12) h = 0;
-      }
-    } else if (hint === 'evening' && h < 12) {
-      h += 12;
-    } else if (guessAfternoon && hint == null && h >= 1 && h <= 6 && !t.is24Hour) {
-      h += 12;
-    }
-    return h * 60 + t.minute;
-  }
 
   function weekdayIndex(s) {
     return { 一: 1, 1: 1, 二: 2, 2: 2, 三: 3, 3: 3, 四: 4, 4: 4, 五: 5, 5: 5, 六: 6, 6: 6, 日: 7, 天: 7, 7: 7 }[s] || null;
@@ -714,54 +425,48 @@ input, select, textarea { font: inherit; color: inherit; }
     return rollMonth ? addMonths(d, 1) : new Date(year + 1, month - 1, day);
   }
 
+  /** Finds a date expression, removes it from state.text and returns the day. */
   function parseDate(state, today) {
     const year = today.getFullYear();
     let m;
 
     if ((m = firstMatch('(\\d{4})\\s*[-/.年]\\s*(\\d{1,2})\\s*[-/.月]\\s*(\\d{1,2})\\s*[日号號]?', state.text))) {
-      const d = new Date(+m[1], +m[2] - 1, +m[3]);
       state.text = cut(state.text, m);
-      return { day: d, part: null };
+      return new Date(+m[1], +m[2] - 1, +m[3]);
     }
     if ((m = firstMatch('(' + ANY_NUM + ')\\s*月\\s*(' + ANY_NUM + ')\\s*[日号號]', state.text))) {
       const mo = chineseNumber(m[1]), d = chineseNumber(m[2]);
       const date = mo && d ? nearestFuture(mo, d, year, today) : null;
-      if (date) { state.text = cut(state.text, m); return { day: date, part: null }; }
+      if (date) { state.text = cut(state.text, m); return date; }
     }
     if ((m = firstMatch('(?<![\\d:/])(\\d{1,2})/(\\d{1,2})(?![\\d/])', state.text))) {
       const mo = +m[1], d = +m[2];
       const date = mo >= 1 && mo <= 12 && d >= 1 && d <= 31 ? nearestFuture(mo, d, year, today) : null;
-      if (date) { state.text = cut(state.text, m); return { day: date, part: null }; }
+      if (date) { state.text = cut(state.text, m); return date; }
     }
-
     const words = [
-      ['大后天', 3, null], ['后天', 2, null],
-      ['明早', 1, 'morning'], ['明晨', 1, 'morning'], ['明晚', 1, 'evening'],
-      ['明天', 1, null], ['明日', 1, null],
-      ['今早', 0, 'morning'], ['今晨', 0, 'morning'], ['今晚', 0, 'evening'],
-      ['今天', 0, null], ['今日', 0, null],
-      ['昨天', -1, null],
-      ['tomorrow', 1, null], ['tmr', 1, null], ['tonight', 0, 'evening'], ['today', 0, null],
+      ['大后天', 3], ['后天', 2], ['明早', 1], ['明晨', 1], ['明晚', 1], ['明天', 1], ['明日', 1],
+      ['今早', 0], ['今晨', 0], ['今晚', 0], ['今天', 0], ['今日', 0], ['昨天', -1],
+      ['tomorrow', 1], ['tmr', 1], ['tonight', 0], ['today', 0],
     ];
-    const alt = words.map((w) => w[0]).join('|');
-    if ((m = firstMatch('(?<![a-z])(' + alt + ')(?![a-z])', state.text))) {
+    if ((m = firstMatch('(?<![a-z])(' + words.map((w) => w[0]).join('|') + ')(?![a-z])', state.text))) {
       const w = words.find((x) => x[0] === m[1].toLowerCase());
-      if (w) { state.text = cut(state.text, m); return { day: addDays(today, w[1]), part: w[2] }; }
+      if (w) { state.text = cut(state.text, m); return addDays(today, w[1]); }
     }
     if ((m = firstMatch('(' + ANY_NUM + ')\\s*天[以之]?后', state.text))) {
       const n = chineseNumber(m[1]);
-      if (n != null) { state.text = cut(state.text, m); return { day: addDays(today, n), part: null }; }
+      if (n != null) { state.text = cut(state.text, m); return addDays(today, n); }
     }
     if ((m = firstMatch('(下下个?|下个?|这个?|本|上个?)?\\s*(?:周|星期|礼拜|週)\\s*([一二三四五六日天1-7])', state.text))) {
       const target = weekdayIndex(m[2]);
-      if (target) { state.text = cut(state.text, m); return { day: weekdayDate(target, m[1], today), part: null }; }
+      if (target) { state.text = cut(state.text, m); return weekdayDate(target, m[1], today); }
     }
     if ((m = firstMatch('(?<![a-z])(next\\s+|this\\s+)?(mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)(?:day|nesday|sday|urday)?(?![a-z])', state.text))) {
       const target = englishWeekday(m[2]);
       if (target) {
         state.text = cut(state.text, m);
         const p = (m[1] || '').trim().toLowerCase();
-        return { day: weekdayDate(target, p === 'next' ? '下' : p === 'this' ? '本' : null, today), part: null };
+        return weekdayDate(target, p === 'next' ? '下' : p === 'this' ? '本' : null, today);
       }
     }
     // 16号 / 16日 (not "12号床", "一日三餐")
@@ -774,79 +479,8 @@ input, select, textarea { font: inherit; color: inherit; }
       const d = chineseNumber(m[1]);
       if (d >= 1 && d <= 31) {
         const date = nearestFuture(today.getMonth() + 1, d, year, today, true);
-        if (date) { state.text = cut(state.text, m); return { day: date, part: null }; }
+        if (date) { state.text = cut(state.text, m); return date; }
       }
-    }
-    return null;
-  }
-
-  function parseDuration(state) {
-    let m;
-    if ((m = firstMatch('(' + ANY_NUM + ')\\s*个半\\s*(?:小时|钟头|鐘頭)', state.text))) {
-      const h = chineseNumber(m[1]);
-      if (h != null) { state.text = cut(state.text, m); return h * 60 + 30; }
-    }
-    if ((m = firstMatch('半\\s*个?\\s*(?:小时|钟头|鐘頭)', state.text))) {
-      state.text = cut(state.text, m);
-      return 30;
-    }
-    const hourPattern = '(\\d+(?:\\.\\d+)?|' + CN_NUM + ')\\s*个?\\s*(?:小时|钟头|鐘頭|hours?|hrs?|h)(?![a-z])' +
-      '(?:\\s*(\\d+|' + CN_NUM + ')\\s*(?:分钟|分鐘|分|minutes?|mins?|m)(?![a-z]))?';
-    if ((m = firstMatch(hourPattern, state.text))) {
-      const hours = /^\d/.test(m[1]) ? parseFloat(m[1]) : chineseNumber(m[1]);
-      if (hours != null && !isNaN(hours)) {
-        state.text = cut(state.text, m);
-        const extra = m[2] ? (chineseNumber(m[2]) || 0) : 0;
-        return Math.round(hours * 60) + extra;
-      }
-    }
-    // A bare "分" is left alone: "3点15分" is a time
-    if ((m = firstMatch('(\\d+|' + CN_NUM + ')\\s*(?:分钟|分鐘|minutes?|mins?|m)(?![a-z])', state.text))) {
-      const minutes = chineseNumber(m[1]);
-      if (minutes > 0) { state.text = cut(state.text, m); return minutes; }
-    }
-    return null;
-  }
-
-  function parseTimeRange(state, hint) {
-    const pattern = TIME + '\\s*(?:-|–|—|~|～|〜|到|至|to)\\s*' + TIME;
-    for (const m of allMatches(pattern, state.text)) {
-      const a = clockTime(m, 0), b = clockTime(m, G);
-      if (!a || !b || !(a.hasMarker || b.hasMarker)) continue;
-      // "3-5pm": the first time borrows the second's am/pm
-      if (!a.ampm && !a.period && b.ampm) a.ampm = b.ampm;
-      let start = resolveTime(a, hint, true);
-      let end;
-      if (b.ampm || b.period || b.is24Hour) {
-        const explicit = resolveTime(b, hint, false);
-        // "6:00-14:00" is a morning start, not 18:00
-        const plain = resolveTime(a, hint, false);
-        if (plain < explicit && start >= explicit) start = plain;
-        end = explicit > start ? explicit : explicit + 1440;
-      } else if (hint === 'evening') {
-        const e = resolveTime(b, hint, false);
-        end = e > start ? e : e + 1440;
-      } else {
-        // Earliest reading after the start: "3点-5点" → 17:00, "22:00-6:00" → next day 06:00
-        const raw = b.hour * 60 + b.minute;
-        const candidates = [raw];
-        if (b.hour < 12) candidates.push(raw + 720);
-        candidates.push(raw + 1440);
-        end = candidates.find((c) => c > start);
-        if (end == null) end = raw + 1440;
-      }
-      state.text = cut(state.text, m);
-      return [start, end];
-    }
-    return null;
-  }
-
-  function parseSingleTime(state, hint) {
-    for (const m of allMatches(TIME, state.text)) {
-      const t = clockTime(m, 0);
-      if (!t || !t.hasMarker) continue;
-      state.text = cut(state.text, m);
-      return resolveTime(t, hint, true);
     }
     return null;
   }
@@ -857,24 +491,18 @@ input, select, textarea { font: inherit; color: inherit; }
   }
 
   /**
-   * Parses one quick-add line.
-   * @param opts {now, defaultDay, override: 'automatic'|'event'|'reminder', defaultEventMinutes, shiftNames}
+   * Parses one quick-add line into a task: "明天 交报告 #工作 !!".
+   * Without a date the task goes to the to-do area (day = null).
+   * Clock times are not interpreted; they stay in the title.
    */
-  function parseQuickAdd(input, opts) {
-    const o = opts || {};
-    const now = o.now ? new Date(o.now) : new Date();
-    const today = startOfDay(now);
+  function parseTask(input, opts) {
+    const now = opts && opts.now ? new Date(opts.now) : new Date();
     const state = { text: ' ' + String(input).replace(/\u3000/g, ' ') + ' ' };
     let m;
-
-    let forcedReminder = false;
-    if ((m = firstMatch('^\\s*(待办|提醒我?|任务|todo|task)\\s*[:：]?\\s*', state.text))) {
-      forcedReminder = true;
-      state.text = cut(state.text, m);
-    }
-    let calendarHint = null;
+    if ((m = firstMatch('^\\s*(待办|提醒我?|任务|todo|task)\\s*[:：]?\\s*', state.text))) state.text = cut(state.text, m);
+    let listHint = null;
     if ((m = firstMatch('[#＃]([^\\s#＃]+)', state.text))) {
-      calendarHint = m[1];
+      listHint = m[1];
       state.text = cut(state.text, m);
     }
     let priority = 0;
@@ -882,59 +510,15 @@ input, select, textarea { font: inherit; color: inherit; }
       priority = m[1].length === 3 ? 1 : m[1].length === 2 ? 5 : 9;
       state.text = cut(state.text, m);
     }
-    let allDay = false;
-    if ((m = firstMatch('全天|整天|all[\\s-]?day', state.text))) {
-      allDay = true;
-      state.text = cut(state.text, m);
-    }
-    const date = parseDate(state, today);
-    const duration = parseDuration(state);
-    let startMinute = null, endMinute = null;
-    const range = parseTimeRange(state, date && date.part);
-    if (range) { startMinute = range[0]; endMinute = range[1]; }
-    else startMinute = parseSingleTime(state, date && date.part);
-
-    const title = cleanTitle(state.text);
-    const day = date ? startOfDay(date.day) : startOfDay(o.defaultDay || now);
-    const hasTime = startMinute != null;
-
-    let kind, shiftName = null;
-    const override = o.override || 'automatic';
-    if (override === 'reminder') kind = 'reminder';
-    else if (override === 'event') kind = hasTime ? 'event' : 'allDayEvent';
-    else if (forcedReminder) kind = 'reminder';
-    else if (allDay) kind = 'allDayEvent';
-    else if (!hasTime && (shiftName = (o.shiftNames || []).find((n) => n.toLowerCase() === title.toLowerCase()) || null)) kind = 'shift';
-    else kind = hasTime ? 'event' : 'reminder';
-
-    let start = null, end = null;
-    if (hasTime) {
-      start = dateOnDay(day, startMinute);
-      if (kind === 'event') {
-        end = dateOnDay(day, endMinute != null ? endMinute : startMinute + (duration || o.defaultEventMinutes || 60));
-      }
-    }
-    if (kind === 'allDayEvent') { start = day; end = addDays(day, 1); }
-
-    return {
-      kind, title, day, start, end,
-      hasExplicitDate: !!date,
-      hasTime: hasTime && kind !== 'allDayEvent',
-      durationMinutes: endMinute != null && startMinute != null ? endMinute - startMinute : duration,
-      priority, calendarHint, shiftName,
-    };
+    const day = parseDate(state, startOfDay(now));
+    return { title: cleanTitle(state.text), day: day ? startOfDay(day) : null, priority, listHint };
   }
 
   const GlanceCore = {
-    startOfDay, addDays, addMonths, daysBetween, minuteOfDay, dateOnDay, sameDay, sameMonth,
-    isoWeekday, startOfWeek, weekDays, monthGrid, snap, fmt,
-    layoutTimeline, busyMinutes, loadLevel, freeGaps,
-    shifts, chineseNumber, parseQuickAdd,
+    startOfDay, addDays, addMonths, daysBetween, sameDay, sameMonth, isoWeekday,
+    startOfWeek, weekDays, monthGrid, eventDays, fmt, loadLevel, chineseNumber, parseTask,
   };
   root.GlanceCore = GlanceCore;
-  if (typeof module !== 'undefined' && module && module.exports && typeof window === 'undefined' && typeof Script === 'undefined') {
-    module.exports = GlanceCore;
-  }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
 </script>
@@ -946,14 +530,16 @@ window.__MOCK__ = (function () {
   const C = window.GlanceCore;
   const params = new URLSearchParams(location.search);
   const today = params.get('today') ? C.startOfDay(new Date(params.get('today'))) : C.startOfDay(new Date());
-  const at = (dayOffset, h, m) => C.dateOnDay(C.addDays(today, dayOffset), h * 60 + (m || 0)).getTime();
+  const at = (dayOffset, h, m) => {
+    const d = C.addDays(today, dayOffset);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m || 0).getTime();
+  };
   const dayAt = (dayOffset) => C.addDays(today, dayOffset).getTime();
   const endOfDay = (dayOffset) => C.addDays(today, dayOffset + 1).getTime() - 1000;
 
   const calendars = [
     { id: 'cal-work', title: '工作', color: '#2F6FED', editable: true },
     { id: 'cal-home', title: '个人', color: '#34C759', editable: true },
-    { id: 'cal-shift', title: '排班', color: '#6366F1', editable: true },
     { id: 'cal-holiday', title: '节假日', color: '#E5383B', editable: false },
   ];
   const lists = [
@@ -968,32 +554,33 @@ window.__MOCK__ = (function () {
   let events = [
     ev('晨会', at(0, 8), at(0, 8, 30), 'cal-work', { location: '3楼会议室' }),
     ev('门诊', at(0, 9), at(0, 12), 'cal-work', { location: '门诊二区' }),
-    ev('电话会诊', at(0, 10, 30), at(0, 11), 'cal-work'),
     ev('文献阅读', at(0, 15), at(0, 16, 30), 'cal-home'),
+    ev('夜间值班', at(1, 20), at(2, 8), 'cal-work'),
     ev('健身', at(1, 19), at(1, 20), 'cal-home'),
-    ev('学术会议', dayAt(2), endOfDay(2), 'cal-work', { allDay: true }),
-    ev('白班', at(-1, 8), at(-1, 17), 'cal-shift'),
-    ev('夜班', at(3, 20), at(4, 8), 'cal-shift'),
-    ev('白班', at(4, 16), at(4, 23), 'cal-shift'),
+    ev('学术会议', dayAt(3), endOfDay(4), 'cal-work', { allDay: true }),
     ev('纪念日', dayAt(5), endOfDay(5), 'cal-holiday', { allDay: true }),
   ];
   // A weekly series: occurrences share one identifier
   for (let w = -6; w <= 6; w++) {
     const monday = C.addDays(C.startOfWeek(today, 1), w * 7);
-    const s = C.dateOnDay(monday, 7 * 60 + 30).getTime();
+    const s = monday.getTime() + 7.5 * 3600e3;
     events.push({ id: 'evt-weekly', title: '科室例会', start: s, end: s + 3600e3, allDay: false, calendarId: 'cal-work', location: '', notes: '', series: true });
   }
 
+  const task = (title, due, extra) => Object.assign({ id: nid('rem'), title, notes: '', due, hasTime: false, completed: false,
+    completionDate: null, priority: 0, listId: 'list-main' }, extra || {});
   let reminders = [
-    { id: nid('rem'), title: '回复会诊意见', notes: '', due: dayAt(0), hasTime: false, completed: false, completionDate: null, priority: 5, listId: 'list-work' },
-    { id: nid('rem'), title: '交病历', notes: '', due: at(0, 17), hasTime: true, completed: false, completionDate: null, priority: 0, listId: 'list-work' },
-    { id: nid('rem'), title: '续开处方', notes: '', due: dayAt(-1), hasTime: false, completed: false, completionDate: null, priority: 0, listId: 'list-main' },
-    { id: nid('rem'), title: '准备病例讨论 PPT', notes: '', due: null, hasTime: false, completed: false, completionDate: null, priority: 0, listId: 'list-work' },
-    { id: nid('rem'), title: '买牛奶', notes: '', due: null, hasTime: false, completed: false, completionDate: null, priority: 0, listId: 'list-main' },
-    { id: nid('rem'), title: '预约体检', notes: '', due: null, hasTime: false, completed: false, completionDate: null, priority: 9, listId: 'list-main' },
-    { id: nid('rem'), title: '查看化验结果', notes: '', due: dayAt(0), hasTime: false, completed: true, completionDate: at(0, 8, 40), priority: 0, listId: 'list-work' },
+    task('回复会诊意见', dayAt(0), { priority: 5, listId: 'list-work' }),
+    task('交病历', dayAt(0), { listId: 'list-work' }),
+    task('续开处方', dayAt(-1)),
+    task('整理随访名单', dayAt(2), { listId: 'list-work' }),
+    task('准备病例讨论 PPT', null, { listId: 'list-work' }),
+    task('买牛奶', null),
+    task('预约体检', null, { priority: 9 }),
+    task('更新简历', null),
+    task('查看化验结果', dayAt(0), { completed: true, completionDate: at(0, 8, 40), listId: 'list-work' }),
   ];
-  let settings = { taskDurations: {} };
+  let settings = {};
   let lastRange = null;
   const log = [];
 
@@ -1003,38 +590,27 @@ window.__MOCK__ = (function () {
 
   function data() {
     const r = lastRange || { start: dayAt(-60), end: dayAt(60) };
+    const hidden = settings.hidden || [];
     return {
       calendars, lists, settings, version: 'preview',
-      defaults: { eventCalendarId: 'cal-work', reminderListId: 'list-main' },
-      events: events.filter((e) => !(settings.hidden || []).includes(e.calendarId) && e.start < r.end && e.end >= r.start)
+      defaults: { reminderListId: 'list-main' },
+      events: events.filter((e) => !hidden.includes(e.calendarId) && e.start < r.end && e.end >= r.start)
         .map((e) => ({ uid: uid(e), id: e.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay, calendarId: e.calendarId, location: e.location, notes: e.notes })),
-      reminders: reminders.filter((x) => !(settings.hidden || []).includes(x.listId) &&
+      reminders: reminders.filter((x) => !hidden.includes(x.listId) &&
         (!x.completed || (x.completionDate >= r.start && x.completionDate < r.end))).map((x) => Object.assign({}, x)),
     };
   }
 
-  function createEvent(p) {
-    const e = ev(p.title || '新日程', p.start, p.end, p.calendarId || 'cal-work', { allDay: !!p.allDay, location: p.location || '', notes: p.notes || '' });
-    if (e.allDay) { e.start = C.startOfDay(e.start).getTime(); e.end = C.addDays(C.startOfDay(Math.max(p.end, p.start)), 1).getTime() - 1000; }
-    events.push(e);
-    return e;
-  }
-
   const handlers = {
     load(p) { lastRange = p; return data(); },
-    saveSettings(p) {
-      settings = Object.assign({}, p.settings, { taskDurations: Object.assign({}, p.settings.taskDurations, settings.taskDurations) });
-      return { ok: true, data: data() };
-    },
-    createEvent(p) { const e = createEvent(p); return { ok: true, uid: uid(e), data: data() }; },
+    saveSettings(p) { settings = Object.assign({}, p.settings); return { ok: true, data: data() }; },
     updateEvent(p) {
       const e = findEvent(p.uid);
       if (!e) return { error: '找不到这个日程' };
       if (e.series) return { recurring: true };
       for (const k of ['title', 'location', 'notes', 'calendarId']) if (p[k] != null) e[k] = p[k];
-      if (p.allDay != null) e.allDay = p.allDay;
       if (p.start != null) e.start = p.start;
-      if (p.end != null) e.end = e.allDay ? C.addDays(C.startOfDay(Math.max(p.end, e.start)), 1).getTime() - 1000 : p.end;
+      if (p.end != null) e.end = Math.max(p.end, e.start);
       return { ok: true, data: data() };
     },
     deleteEvent(p) {
@@ -1045,10 +621,9 @@ window.__MOCK__ = (function () {
     },
     editNative() { return { ok: true, data: data() }; },
     createReminder(p) {
-      const r = { id: nid('rem'), title: p.title || '新待办', notes: p.notes || '', due: p.due != null ? p.due : null,
-        hasTime: !!(p.due != null && p.hasTime), completed: false, completionDate: null, priority: p.priority || 0, listId: p.listId || 'list-main' };
+      const r = task(p.title || '新待办', p.due != null ? p.due : null,
+        { hasTime: !!(p.due != null && p.hasTime), priority: p.priority || 0, listId: p.listId || 'list-main', notes: p.notes || '' });
       reminders.push(r);
-      if (p.duration) settings.taskDurations[r.id] = p.duration;
       return { ok: true, id: r.id, data: data() };
     },
     updateReminder(p) {
@@ -1057,17 +632,9 @@ window.__MOCK__ = (function () {
       for (const k of ['title', 'notes', 'priority', 'listId']) if (p[k] != null) r[k] = p[k];
       if ('due' in p) { r.due = p.due; r.hasTime = !!(p.due != null && p.hasTime); }
       if (p.completed != null) { r.completed = p.completed; r.completionDate = p.completed ? Date.now() : null; }
-      if (p.duration) settings.taskDurations[p.id] = p.duration;
       return { ok: true, data: data() };
     },
     deleteReminder(p) { reminders = reminders.filter((x) => x.id !== p.id); return { ok: true, data: data() }; },
-    batch(p) {
-      for (const op of p.ops || []) {
-        if (op.type === 'deleteEvent') handlers.deleteEvent(op);
-        else if (op.type === 'createEvent') createEvent(op);
-      }
-      return { ok: true, data: data() };
-    },
     openSettingsApp() { return { ok: true }; },
     selfUpdate() { return { ok: true, message: '预览版不需要更新' }; },
   };
@@ -1088,8 +655,8 @@ window.__MOCK__ = (function () {
 
 </script>
 <script>
-// 一览 web UI. Runs inside Scriptable's WebView (data via the Scriptable
-// bridge) or in a desktop browser with the mock bridge (preview / tests).
+// 一览 web UI (day-level). Runs inside Scriptable's WebView (data via the
+// Scriptable bridge) or in a desktop browser with the mock bridge.
 (function () {
   'use strict';
   const C = window.GlanceCore;
@@ -1100,31 +667,24 @@ window.__MOCK__ = (function () {
   const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
   const pad = (n) => String(n).padStart(2, '0');
   const dateValue = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const timeValue = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  const fromInputs = (dv, tv) => {
-    const [y, m, d] = (dv || '').split('-').map(Number);
-    const [h, mi] = (tv || '00:00').split(':').map(Number);
-    return new Date(y, (m || 1) - 1, d || 1, h || 0, mi || 0);
+  const fromDateValue = (v) => {
+    const [y, m, d] = (v || '').split('-').map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
   };
 
   const DEFAULT_SETTINGS = {
-    hidden: [], weekStart: 1, capacityHours: 8, defaultEventMinutes: 60, defaultTaskMinutes: 30,
-    restHours: 11, showCompleted: true, hourHeight: 56, dayStyle: 'timeline',
-    shiftCalendarId: null, defaultEventCalendarId: null, defaultReminderListId: null,
-    shiftTemplates: C.shifts.defaults(), taskDurations: {}, notifyTasks: true,
+    hidden: [], weekStart: 1, capacity: 6, showCompleted: true, defaultReminderListId: null, inboxOpen: true,
   };
 
   const S = {
     ready: false, error: null,
-    calendars: [], lists: [], events: [], reminders: [], defaults: {},
+    calendars: [], lists: [], events: [], reminders: [], defaults: {}, version: '',
     settings: Object.assign({}, DEFAULT_SETTINGS),
     mode: 'day', day: C.startOfDay(new Date()), range: null,
-    trayCollapsed: false, showInbox: false, listInbox: false,
-    brushOn: false, brush: null, menu: false,
-    sheet: null, toast: null, override: 'automatic',
-    viewKey: '', blocks: {}, loading: false,
+    sheet: null, toast: null, viewKey: '', loading: false,
   };
   const ws = () => S.settings.weekStart;
+  const today = () => C.startOfDay(new Date());
 
   // ------------------------------------------------------------- bridge
 
@@ -1214,7 +774,6 @@ window.__MOCK__ = (function () {
     S.defaults = res.defaults || {};
     S.version = res.version || '';
     S.settings = Object.assign({}, DEFAULT_SETTINGS, res.settings || {});
-    if (!S.settings.shiftTemplates || !S.settings.shiftTemplates.length) S.settings.shiftTemplates = C.shifts.defaults();
     enrich(res.events || [], res.reminders || []);
     S.ready = true;
     if (!Gest.active) render();
@@ -1225,94 +784,63 @@ window.__MOCK__ = (function () {
     const list = Object.fromEntries(S.lists.map((l) => [l.id, l]));
     const count = {};
     for (const e of events) count[e.id] = (count[e.id] || 0) + 1;
-    const tpls = S.settings.shiftTemplates;
     S.events = events.map((e) => {
       const c = cal[e.calendarId] || {};
+      const start = new Date(e.start), end = new Date(e.end);
       return Object.assign({}, e, {
-        start: new Date(e.start), end: new Date(e.end),
-        color: c.color || '#8e8e93', calTitle: c.title || '',
-        canEdit: c.editable !== false,
-        recurring: !!e.recurring || count[e.id] > 1,
-        shift: C.shifts.match(tpls, e.title),
+        start, end, color: c.color || '#8e8e93', calTitle: c.title || '',
+        canEdit: c.editable !== false, recurring: !!e.recurring || count[e.id] > 1,
+        days: C.eventDays(start, end, e.allDay).map(Number),
       });
-    }).sort((a, b) => a.start - b.start || a.end - b.end);
+    }).sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start) || a.title.localeCompare(b.title));
     S.reminders = reminders.map((r) => {
       const l = list[r.listId] || {};
-      const due = r.due != null ? new Date(r.due) : null;
-      const duration = S.settings.taskDurations[r.id] || S.settings.defaultTaskMinutes;
       return Object.assign({}, r, {
-        due, completionDate: r.completionDate != null ? new Date(r.completionDate) : null,
-        color: l.color || '#f08c00', listTitle: l.title || '', duration,
-        end: due ? new Date(due.getTime() + duration * 60e3) : null,
+        due: r.due != null ? new Date(r.due) : null,
+        completionDate: r.completionDate != null ? new Date(r.completionDate) : null,
+        color: l.color || '#f08c00', listTitle: l.title || '',
       });
     });
     agendaCache.clear();
   }
 
+  const byPriority = (a, b) => {
+    const p = (x) => (x.priority === 0 ? 10 : x.priority);
+    return p(a) - p(b) || a.title.localeCompare(b.title);
+  };
+
   const agendaCache = new Map();
+  /** Everything listed on one day. */
   function agenda(day) {
     const start = C.startOfDay(day);
     const key = start.getTime();
     if (agendaCache.has(key)) return agendaCache.get(key);
-    const end = C.addDays(start, 1);
     const isToday = C.sameDay(start, new Date());
-    const a = { day: start, shifts: [], allDay: [], timed: [], overdue: [], untimed: [], timedTasks: [], completed: [] };
-    for (const e of S.events) {
-      if (!(e.start < end && (e.end > start || (+e.end === +e.start && e.start >= start)))) continue;
-      if (e.shift) {
-        if (C.sameDay(e.start, start)) a.shifts.push(e);
-        if (!e.shift.isAllDay && !e.allDay) a.timed.push(e);
-      } else if (e.allDay) a.allDay.push(e);
-      else a.timed.push(e);
-    }
+    const a = { day: start, events: [], tasks: [], done: [], overdue: [] };
+    for (const e of S.events) if (e.days.includes(key)) a.events.push(e);
     for (const r of S.reminders) {
       if (r.completed) {
         const d = r.completionDate || r.due;
-        if (d && C.sameDay(d, start)) a.completed.push(r);
+        if (d && C.sameDay(d, start)) a.done.push(r);
       } else if (r.due) {
-        if (C.sameDay(r.due, start)) (r.hasTime ? a.timedTasks : a.untimed).push(r);
+        if (C.sameDay(r.due, start)) a.tasks.push(r);
         else if (isToday && r.due < start) a.overdue.push(r);
       }
     }
-    const pr = (p) => (p === 0 ? 10 : p);
-    a.untimed.sort((x, y) => pr(x.priority) - pr(y.priority) || x.title.localeCompare(y.title));
-    a.timedTasks.sort((x, y) => x.due - y.due);
-    a.pending = a.overdue.length + a.untimed.length + a.timedTasks.length;
+    a.tasks.sort(byPriority);
+    a.overdue.sort((x, y) => x.due - y.due);
+    a.count = a.events.length + a.tasks.length;
     agendaCache.set(key, a);
     return a;
   }
 
-  const inbox = () => S.reminders.filter((r) => !r.completed && !r.due);
-
-  function loadLevel(day) {
-    const a = agenda(day);
-    const iv = a.timed.map((e) => ({ start: C.minuteOfDay(e.start, day), end: C.minuteOfDay(e.end, day) }));
-    for (const t of a.timedTasks) {
-      const s = C.minuteOfDay(t.due, day);
-      iv.push({ start: s, end: s + t.duration });
-    }
-    return C.loadLevel(C.busyMinutes(iv) + a.untimed.length * 15, S.settings.capacityHours * 60);
-  }
-
-  function shortRest(ev) {
-    if (!ev.shift || ev.shift.isAllDay || ev.allDay) return null;
-    let prev = null;
-    for (const e of S.events) {
-      if (e === ev || !e.shift || e.shift.isAllDay || e.allDay || e.start >= ev.start) continue;
-      if (!prev || e.end > prev.end) prev = e;
-    }
-    if (!prev) return null;
-    const h = (ev.start - prev.end) / 3600e3;
-    return h < S.settings.restHours ? Math.max(h, 0) : null;
-  }
-
+  const inbox = () => S.reminders.filter((r) => !r.completed && !r.due).sort(byPriority);
+  const level = (day) => C.loadLevel(agenda(day).count, S.settings.capacity);
   const findEvent = (uid) => S.events.find((e) => e.uid === uid);
   const findTask = (id) => S.reminders.find((r) => r.id === id);
   const editableCalendars = () => S.calendars.filter((c) => c.editable);
   const editableLists = () => S.lists.filter((l) => l.editable !== false);
-  const defaultCalendarId = () => S.settings.defaultEventCalendarId || S.defaults.eventCalendarId || (editableCalendars()[0] || {}).id;
   const defaultListId = () => S.settings.defaultReminderListId || S.defaults.reminderListId || (editableLists()[0] || {}).id;
-  const shiftCalendarId = () => S.settings.shiftCalendarId || defaultCalendarId();
   const byHint = (hint, items) => {
     if (!hint) return null;
     const h = hint.toLowerCase();
@@ -1356,18 +884,30 @@ window.__MOCK__ = (function () {
     render();
   }
 
-  function moveEvent(ev, newStart, newEnd) {
-    optimistic(() => { ev.start = newStart; ev.end = newEnd; });
-    return mutate('updateEvent', { uid: ev.uid, start: +newStart, end: +newEnd, allDay: ev.allDay });
+  /** Moves a task to `day` (null = back to the to-do area), keeping any time it had. */
+  function scheduleTask(task, day) {
+    let due = null;
+    if (day) {
+      due = C.startOfDay(day);
+      if (task.hasTime && task.due) due = new Date(due.getFullYear(), due.getMonth(), due.getDate(), task.due.getHours(), task.due.getMinutes());
+    }
+    const hasTime = !!(due && task.hasTime);
+    optimistic(() => { task.due = due; task.hasTime = hasTime; });
+    return mutate('updateReminder', { id: task.id, due: due ? +due : null, hasTime });
   }
 
-  function scheduleTask(task, due, hasTime) {
+  /** Moves an event by whole days so it starts on `day`; its time of day is kept. */
+  function moveEventToDay(ev, day) {
+    const delta = C.daysBetween(ev.start, day);
+    if (!delta) return null;
+    const start = C.addDays(ev.start, delta);
+    const end = C.addDays(ev.end, delta);
     optimistic(() => {
-      task.due = due;
-      task.hasTime = !!(due && hasTime);
-      task.end = due ? new Date(due.getTime() + task.duration * 60e3) : null;
+      ev.start = start;
+      ev.end = end;
+      ev.days = C.eventDays(start, end, ev.allDay).map(Number);
     });
-    return mutate('updateReminder', { id: task.id, due: due ? +due : null, hasTime: !!(due && hasTime) });
+    return mutate('updateEvent', { uid: ev.uid, start: +start, end: +end });
   }
 
   function toggleTask(task) {
@@ -1376,40 +916,6 @@ window.__MOCK__ = (function () {
       task.completionDate = task.completed ? new Date() : null;
     });
     return mutate('updateReminder', { id: task.id, completed: task.completed });
-  }
-
-  function setTaskDuration(task, minutes) {
-    optimistic(() => {
-      task.duration = Math.max(15, minutes);
-      task.end = task.due ? new Date(task.due.getTime() + task.duration * 60e3) : null;
-    });
-    return mutate('updateReminder', { id: task.id, duration: task.duration });
-  }
-
-  function postpone(task, days) {
-    const today = C.startOfDay(new Date());
-    const base = task.due && task.due > today ? task.due : (task.hasTime && task.due ? new Date(today.getTime() + C.minuteOfDay(task.due, task.due) * 60e3) : today);
-    return scheduleTask(task, C.addDays(base, days), task.hasTime);
-  }
-
-  /** Brush: the same shift again removes it, another one replaces it. */
-  function applyShift(template, day) {
-    const existing = agenda(day).shifts;
-    const same = existing.some((e) => e.shift && e.shift.id === template.id);
-    const ops = existing.map((e) => ({ type: 'deleteEvent', uid: e.uid }));
-    if (!same) {
-      const iv = C.shifts.interval(template, day);
-      ops.push({
-        type: 'createEvent', title: template.name, allDay: !!template.isAllDay,
-        start: +iv.start, end: +(template.isAllDay ? iv.start : iv.end), calendarId: shiftCalendarId(),
-      });
-    }
-    return mutate('batch', { ops });
-  }
-
-  function clearShifts(day) {
-    const ops = agenda(day).shifts.map((e) => ({ type: 'deleteEvent', uid: e.uid }));
-    if (ops.length) return mutate('batch', { ops });
   }
 
   function saveSettings(patch) {
@@ -1421,7 +927,7 @@ window.__MOCK__ = (function () {
 
   let toastTimer = null;
   function toast(message, action) {
-    S.toast = { message, action, id: Date.now() };
+    S.toast = { message, action };
     renderToast();
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { S.toast = null; renderToast(); }, action ? 5000 : 3000);
@@ -1445,9 +951,13 @@ window.__MOCK__ = (function () {
   function render() {
     renderHeader();
     renderMain();
+    renderInbox();
     renderPreview();
     renderToast();
   }
+
+  const heat = (lv) => lv ? `rgba(var(--heat), ${[0, 0.16, 0.32, 0.52, 0.78][lv]})` : 'var(--surface2)';
+  const prioMark = (p) => (p >= 1 && p <= 4 ? '!!!' : p === 5 ? '!!' : p >= 6 && p <= 9 ? '!' : '');
 
   function renderHeader() {
     const hdr = $('#hdr');
@@ -1464,79 +974,57 @@ window.__MOCK__ = (function () {
     const parts = [];
     if (S.mode !== 'day') parts.push(C.fmt.relativeDay(day));
     else if (C.sameDay(day, new Date())) parts.push('今天');
-    for (const s of a.shifts) parts.push(s.shift.name);
-    const evCount = a.timed.filter((e) => !e.shift).length + a.allDay.length;
-    if (evCount) parts.push(`${evCount}个日程`);
-    if (a.pending) parts.push(`${a.pending}个待办`);
+    if (a.events.length) parts.push(`${a.events.length}个日程`);
+    if (a.tasks.length) parts.push(`${a.tasks.length}个待办`);
     if (a.overdue.length) parts.push(`逾期${a.overdue.length}`);
     if (!parts.length || (parts.length === 1 && parts[0] === '今天')) parts.push('没有安排');
 
-    const isToday = C.sameDay(day, new Date()) && S.mode === 'day';
+    const onToday = C.sameDay(day, new Date()) && S.mode === 'day';
     hdr.innerHTML = `
       <div class="hdr">
         <div class="hdr-row">
           <div class="hdr-title"><h1>${esc(title)}</h1><p>${esc(parts.join(' · '))}</p></div>
           <button class="icon-btn" data-act="prev" aria-label="上一页">‹</button>
-          <button class="text-btn" data-act="today" ${isToday ? 'disabled' : ''}>今天</button>
+          <button class="text-btn" data-act="today" ${onToday ? 'disabled' : ''}>今天</button>
           <button class="icon-btn" data-act="next" aria-label="下一页">›</button>
           <button class="icon-btn" data-act="settings" aria-label="设置">⚙︎</button>
         </div>
-        <div class="seg-row">
-          <div class="seg">${['day', 'week', 'month'].map((m) =>
-            `<button data-act="mode" data-v="${m}" class="${S.mode === m ? 'on' : ''}">${{ day: '日', week: '周', month: '月' }[m]}</button>`).join('')}</div>
-          ${S.mode === 'day' ? `<button class="style-btn" data-act="style" aria-label="${S.settings.dayStyle === 'timeline' ? '切换到清单' : '切换到时间轴'}">${S.settings.dayStyle === 'timeline' ? '清单' : '时间轴'}</button>` : ''}
-        </div>
+        <div class="seg">${['day', 'week', 'month'].map((m) =>
+          `<button data-act="mode" data-v="${m}" class="${S.mode === m ? 'on' : ''}">${{ day: '日', week: '周', month: '月' }[m]}</button>`).join('')}</div>
         ${S.mode === 'day' ? stripHTML() : ''}
       </div>`;
   }
 
   function stripHTML() {
-    return `<div class="strip" data-swipe="week">${C.weekDays(S.day, ws()).map((d) => {
-      const a = agenda(d);
-      const shift = a.shifts[0] && a.shifts[0].shift;
-      const mark = shift ? badge(shift) : `<span class="loadbar" style="background:${heat(loadLevel(d))}"></span>`;
-      return `<div class="strip-day ${C.sameDay(d, S.day) ? 'sel' : ''} ${C.sameDay(d, new Date()) ? 'today' : ''}"
-        data-act="pick" data-day="${+d}" data-drop-day="${+d}">
+    return `<div class="strip" data-swipe="week">${C.weekDays(S.day, ws()).map((d) => `
+      <div class="strip-day ${C.sameDay(d, S.day) ? 'sel' : ''} ${C.sameDay(d, new Date()) ? 'today' : ''}"
+           data-act="pick" data-day="${+d}" data-drop-day="${+d}">
         <span class="wd">${C.fmt.weekdayLetter(d)}</span><span class="num">${d.getDate()}</span>
-        <span class="mark">${mark}</span></div>`;
-    }).join('')}</div>`;
+        <span class="loadbar" style="background:${heat(level(d))}"></span></div>`).join('')}</div>`;
   }
 
-  const heat = (level) => level ? `rgba(var(--heat), ${[0, 0.16, 0.32, 0.52, 0.78][level]})` : 'var(--surface2)';
-  const badge = (t, size) => `<span class="badge" style="background:${esc(t.color)};${size ? `font-size:${size}px;` : ''}">${esc(t.shortName || t.name.slice(0, 1))}</span>`;
-
   function viewKey() {
-    if (S.mode === 'day') return `day:${+S.day}:${S.settings.dayStyle}`;
+    if (S.mode === 'day') return `day:${+S.day}`;
     if (S.mode === 'week') return `week:${+C.startOfWeek(S.day, ws())}`;
     return `month:${S.day.getFullYear()}-${S.day.getMonth()}`;
   }
 
   function renderMain() {
     const main = $('#main');
-    if (!S.ready) {
-      main.innerHTML = `<div class="center-msg"><p>正在读取日历…</p></div>`;
-      return;
-    }
-    if (S.error) {
-      main.innerHTML = errorHTML();
-      return;
-    }
+    if (!S.ready) { main.innerHTML = '<div class="center-msg"><p>正在读取日历…</p></div>'; return; }
+    if (S.error) { main.innerHTML = errorHTML(); return; }
     const key = viewKey();
     const keep = key === S.viewKey;
-    const scrollers = {};
-    if (keep) for (const el of $$('[data-keep-scroll]', main)) scrollers[el.dataset.keepScroll] = el.scrollTop;
-    S.blocks = {};
-    let html;
-    if (S.mode === 'day') html = S.settings.dayStyle === 'timeline' ? trayHTML() + gridHTML([S.day], false) : listHTML();
-    else if (S.mode === 'week') html = weekHTML();
-    else html = monthHTML();
-    main.innerHTML = html;
-    if (keep) {
-      for (const el of $$('[data-keep-scroll]', main)) {
-        if (scrollers[el.dataset.keepScroll] != null) el.scrollTop = scrollers[el.dataset.keepScroll];
-      }
-    } else {
-      scrollGridToFocus();
+    const scrolls = {};
+    if (keep) for (const el of $$('[data-keep-scroll]', main)) scrolls[el.dataset.keepScroll] = el.scrollTop;
+    main.innerHTML = S.mode === 'day' ? dayHTML() : S.mode === 'week' ? weekHTML() : monthHTML();
+    for (const el of $$('[data-keep-scroll]', main)) {
+      if (keep && scrolls[el.dataset.keepScroll] != null) el.scrollTop = scrolls[el.dataset.keepScroll];
+    }
+    if (!keep && S.mode === 'week') {
+      const sel = $('.wday.sel', main);
+      const list = $('.week', main);
+      if (sel && list) list.scrollTop += sel.getBoundingClientRect().top - list.getBoundingClientRect().top;
     }
     S.viewKey = key;
   }
@@ -1551,287 +1039,113 @@ window.__MOCK__ = (function () {
     return `<div class="center-msg"><h2>读取失败</h2><p>${esc(S.error)}</p><button class="primary" data-act="reload">重试</button></div>`;
   }
 
-  // ----- tray
+  // ----- rows
 
-  function trayHTML() {
-    const a = agenda(S.day);
-    const ib = inbox();
-    const showDone = S.settings.showCompleted;
-    const has = a.shifts.length || a.allDay.length || a.pending || (showDone && a.completed.length);
-    const sum = [];
-    if (a.allDay.length) sum.push(`全天 ${a.allDay.length}`);
-    if (a.untimed.length + a.timedTasks.length) sum.push(`待办 ${a.untimed.length + a.timedTasks.length}`);
-    if (a.overdue.length) sum.push(`逾期 ${a.overdue.length}`);
-    if (a.completed.length) sum.push(`已完成 ${a.completed.length}`);
-    return `<div class="tray">
-      <div class="tray-head"><span class="grow">${sum.length ? sum.join(' · ') : '没有全天事项或待办'}</span>
-        ${ib.length ? `<button class="pill-btn" data-act="inbox">未排期 ${ib.length} ${S.showInbox ? '▴' : '▾'}</button>` : ''}
-        ${has ? `<button class="pill-btn" data-act="collapse">${S.trayCollapsed ? '展开' : '收起'}</button>` : ''}
-      </div>
-      ${has && !S.trayCollapsed ? `<div class="tray-body" data-keep-scroll="tray">
-        ${a.shifts.map(shiftBannerHTML).join('')}
-        <div class="chips">
-          ${a.allDay.map(eventChipHTML).join('')}
-          ${a.overdue.map((t) => taskChipHTML(t, { overdue: true })).join('')}
-          ${a.untimed.map((t) => taskChipHTML(t)).join('')}
-          ${a.timedTasks.map((t) => taskChipHTML(t, { time: true })).join('')}
-          ${showDone ? a.completed.map((t) => taskChipHTML(t)).join('') : ''}
-        </div></div>` : ''}
-      ${S.showInbox && ib.length ? `<div class="inbox"><div class="hint">长按拖到时间轴即排进当天；也可拖到上方日期</div>
-        <div class="chips" data-keep-scroll="inbox">${ib.map((t) => taskChipHTML(t)).join('')}</div></div>` : ''}
-    </div>`;
-  }
-
-  function shiftBannerHTML(e) {
-    const t = e.shift;
-    const rest = shortRest(e);
-    return `<div class="shift-banner" style="--c:${esc(t.color)}" data-act="open-event" data-uid="${esc(e.uid)}">
-      ${badge(t)}<span class="name">${esc(t.name)}</span>
-      <span class="muted mono">${e.allDay || t.isAllDay ? '全天' : C.fmt.range(e.start, e.end)}</span>
-      ${rest != null ? `<span class="warn">⚠︎ 距上一班 ${rest.toFixed(1)} 小时</span>` : ''}</div>`;
-  }
-
-  function eventChipHTML(e) {
-    return `<div class="chip" style="--c:${esc(e.color)}" data-act="open-event" data-uid="${esc(e.uid)}">
-      <span class="dot"></span><span class="t">${esc(e.title || '（无标题）')}</span></div>`;
-  }
-
-  const prioMark = (p) => (p >= 1 && p <= 4 ? '!!!' : p === 5 ? '!!' : p >= 6 && p <= 9 ? '!' : '');
-
-  function taskChipHTML(t, opt) {
-    const o = opt || {};
-    const pm = prioMark(t.priority);
-    return `<div class="chip ${t.completed ? 'done' : ''} ${o.overdue ? 'overdue' : ''}" style="--c:${esc(t.color)}"
-        data-act="open-task" data-task="${esc(t.id)}" data-drag="chip">
-      <span class="check ${t.completed ? 'on' : ''}" data-act="toggle" data-task="${esc(t.id)}">${t.completed ? '✓' : ''}</span>
-      ${pm ? `<span class="prio">${pm}</span>` : ''}<span class="t">${esc(t.title || '（无标题）')}</span>
-      ${o.time && t.due ? `<span class="sub mono">${C.fmt.hm(t.due)}</span>` : ''}
-      ${o.overdue && t.due ? `<span class="sub red">${C.fmt.md(t.due)}</span>` : ''}</div>`;
-  }
-
-  // ----- time grid
-
-  function hourHeight(compact) {
-    return compact ? 44 : clamp(S.settings.hourHeight || 56, 28, 160);
-  }
-
-  function makeBlocks(days) {
-    const out = [];
-    days.forEach((day, i) => {
-      const a = agenda(day);
-      for (const e of a.timed) {
-        const s = Math.max(0, C.minuteOfDay(e.start, day));
-        const en = Math.min(1440, C.minuteOfDay(e.end, day));
-        if (!(en > s || +e.end === +e.start)) continue;
-        out.push({ id: `${i}|e|${e.uid}`, dayIndex: i, src: 'e', ref: e, start: s, end: Math.max(en, s),
-          title: e.title || '（无标题）', color: e.shift ? e.shift.color : e.color, canEdit: e.canEdit, task: false,
-          detail: e.location || '' });
-      }
-      for (const t of a.timedTasks) {
-        const s = C.minuteOfDay(t.due, day);
-        out.push({ id: `${i}|t|${t.id}`, dayIndex: i, src: 't', ref: t, start: s, end: Math.min(1440, s + t.duration),
-          title: t.title || '（无标题）', color: t.color, canEdit: true, task: true, detail: t.listTitle });
-      }
-    });
-    return out;
-  }
-
-  function gridHTML(days, compact) {
-    const hh = hourHeight(compact);
-    const n = days.length;
-    const gutter = compact ? 30 : 46;
-    const minH = compact ? 16 : 22;
-    const blocks = makeBlocks(days);
-    let blocksHTML = '';
-    days.forEach((day, i) => {
-      const col = blocks.filter((b) => b.dayIndex === i);
-      const slots = C.layoutTimeline(col.map((b) => ({ id: b.id, start: b.start, end: b.end })), minH / hh * 60);
-      for (const b of col) {
-        b.slot = slots[b.id] || { column: 0, columnCount: 1, span: 1 };
-        S.blocks[b.id] = b;
-        blocksHTML += blockHTML(b, n, compact, minH, hh);
-      }
-    });
-    let hours = '';
-    for (let h = 0; h < 24; h++) {
-      hours += `<div class="hour" style="top:calc(var(--hh) * ${h} * 1px)">${h ? `<span>${compact ? h : pad(h) + ':00'}</span>` : ''}</div>`;
-      if (!compact && hh >= 80) hours += `<div class="hour half" style="top:calc(var(--hh) * ${h + 0.5} * 1px)"></div>`;
-    }
-    let cols = '';
-    if (n > 1) days.forEach((d, i) => {
-      cols += `<div class="colbg ${C.sameDay(d, new Date()) ? 'today' : ''}" style="left:calc(var(--gutter) + (100% - var(--gutter)) * ${i / n});width:calc((100% - var(--gutter)) / ${n})"></div>`;
-    });
-    const ti = days.findIndex((d) => C.sameDay(d, new Date()));
-    const now = ti >= 0 ? `<div class="now" data-now="${ti}" style="top:calc(var(--hh) * ${C.minuteOfDay(new Date(), days[ti]) / 60} * 1px);left:calc(var(--gutter) + (100% - var(--gutter)) * ${ti / n});width:calc((100% - var(--gutter)) / ${n})"></div>` : '';
-    return `<div class="grid-scroll" data-grid data-keep-scroll="grid" data-days="${days.map((d) => +d).join(',')}" data-compact="${compact ? 1 : 0}">
-      <div class="grid" style="--hh:${hh};--gutter:${gutter}px">
-        ${hours}${cols}<div class="surface" data-drag="create" data-act="surface"></div>${blocksHTML}${now}
-      </div></div>`;
-  }
-
-  function blockHTML(b, n, compact, minH, hh) {
-    const x = (b.dayIndex + b.slot.column / b.slot.columnCount) / n;
-    const w = b.slot.span / b.slot.columnCount / n;
-    const len = b.end - b.start;
-    const px = Math.max(len / 60 * hh - 1, minH);
-    const lines = compact ? Math.max(1, Math.floor(px / 12)) : (px > 44 ? 2 : 1);
-    const time = `${C.fmt.clock(b.start)}–${C.fmt.clock(b.end)}`;
-    const editable = b.canEdit && !(b.src === 'e' && b.ref.recurring);
-    const check = b.task && !compact ? `<span class="check" style="--c:${esc(b.color)}" data-act="toggle" data-task="${esc(b.ref.id)}"></span>` : '';
-    return `<div class="blk ${b.task ? 'task' : ''} ${b.canEdit ? '' : 'ro'} ${compact ? 'compact' : ''} ${px < 34 ? 'short' : ''}"
-        data-blk="${esc(b.id)}" data-act="open-block" ${editable ? 'data-drag="move"' : 'data-drag="locked"'}
-        style="--c:${esc(b.color)};--s:${b.start};--len:${len};--minh:${minH}px;--lines:${lines};left:calc(var(--gutter) + (100% - var(--gutter)) * ${x});width:calc((100% - var(--gutter)) * ${w} - 2px)">
-      <div class="bt">${check}<span class="tt">${esc(b.title)}</span></div>
-      ${!compact && px >= 34 ? `<div class="bs">${[time, b.detail].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
-      ${editable && !compact ? '<div class="handle" data-drag="resize"></div>' : ''}
-    </div>`;
-  }
-
-  function scrollGridToFocus() {
-    const el = $('.grid-scroll');
-    if (!el) return;
-    const days = el.dataset.days.split(',').map((x) => new Date(+x));
-    const hh = +getComputedStyle(el.firstElementChild).getPropertyValue('--hh') || 56;
-    let hour;
-    if (days.some((d) => C.sameDay(d, new Date()))) hour = new Date().getHours() - 1;
-    else {
-      const starts = Object.values(S.blocks).map((b) => b.start);
-      hour = starts.length ? Math.floor(Math.min(...starts) / 60) - 1 : 8;
-    }
-    el.scrollTop = Math.max(0, clamp(hour, 0, 23) * hh - 8);
-  }
-
-  // ----- list
-
-  function listHTML() {
-    const a = agenda(S.day);
-    let h = '<div class="list" data-keep-scroll="list">';
-    if (a.shifts.length || a.allDay.length) {
-      h += '<div class="sec">班次与全天</div><div style="padding:0 12px;display:flex;flex-direction:column;gap:6px">' +
-        a.shifts.map(shiftBannerHTML).join('') + '</div>' + a.allDay.map((e) => eventRowHTML(e, false)).join('');
-    }
-    if (a.overdue.length) h += '<div class="sec">逾期</div>' + a.overdue.map((t) => taskRowHTML(t, { overdue: true })).join('');
-    if (a.untimed.length) h += '<div class="sec">待办</div>' + a.untimed.map((t) => taskRowHTML(t)).join('');
-    h += '<div class="sec">时间表</div>';
-    const entries = a.timed.map((e) => ({ start: e.start, end: e.end, html: eventRowHTML(e, true) }))
-      .concat(a.timedTasks.map((t) => ({ start: t.due, end: t.end, html: taskRowHTML(t) })))
-      .sort((x, y) => x.start - y.start);
-    if (!entries.length) h += '<div class="empty">没有定时的日程</div>';
-    const now = new Date();
-    let nowPlaced = !C.sameDay(now, S.day);
-    let cursor = null;
-    for (const en of entries) {
-      if (!nowPlaced && now < en.start) { h += `<div class="now-row">现在 ${C.fmt.hm(now)}</div>`; nowPlaced = true; }
-      if (cursor) {
-        const gap = Math.round((en.start - cursor) / 60e3);
-        if (gap >= 30) h += `<div class="gap-row">☕︎ 空闲 ${C.fmt.duration(gap)}</div>`;
-      }
-      h += en.html;
-      cursor = cursor && cursor > en.end ? cursor : en.end;
-    }
-    if (!nowPlaced && entries.length) h += `<div class="now-row">现在 ${C.fmt.hm(now)}</div>`;
-    if (S.settings.showCompleted && a.completed.length) h += '<div class="sec">已完成</div>' + a.completed.map((t) => taskRowHTML(t)).join('');
-    const ib = inbox();
-    if (ib.length) {
-      h += `<div class="sec" data-act="list-inbox">未排期 ${ib.length} ${S.listInbox ? '▴' : '▾'}</div>`;
-      if (S.listInbox) h += ib.map((t) => taskRowHTML(t, { inbox: true })).join('');
-    }
-    return h + '</div>';
-  }
-
-  function eventRowHTML(e, showTime) {
-    const detail = [e.location, e.calTitle].filter(Boolean).join(' · ');
-    return `<div class="row" style="--c:${esc(e.shift ? e.shift.color : e.color)}" data-act="open-event" data-uid="${esc(e.uid)}">
-      ${showTime ? `<div class="time">${C.fmt.hm(e.start)}<small>${C.fmt.hm(e.end)}</small></div>` : ''}
+  function eventRowHTML(e, compact) {
+    const detail = [e.calTitle, e.location].filter(Boolean).join(' · ');
+    return `<div class="row ev ${compact ? 'compact' : ''}" style="--c:${esc(e.color)}" data-act="open-event" data-uid="${esc(e.uid)}" data-drag="event">
       <div class="bar"></div>
-      <div class="body"><div class="t">${e.shift ? badge(e.shift) + ' ' : ''}${esc(e.title || '（无标题）')}</div>
-      ${detail ? `<div class="d">${esc(detail)}</div>` : ''}</div>
-      ${e.recurring ? '<span class="muted">↻</span>' : ''}</div>`;
+      <div class="body"><div class="t">${esc(e.title || '（无标题）')}</div>
+        ${!compact && detail ? `<div class="d">${esc(detail)}</div>` : ''}</div>
+      ${e.recurring ? '<span class="muted" title="重复日程">↻</span>' : ''}${e.canEdit ? '' : '<span class="muted" title="只读">🔒</span>'}</div>`;
   }
 
   function taskRowHTML(t, opt) {
     const o = opt || {};
-    const d = [];
-    if (t.due && t.hasTime) d.push(`${C.fmt.hm(t.due)} · ${C.fmt.duration(t.duration)}`);
-    if (o.overdue && t.due) d.push(`原定 ${C.fmt.md(t.due)}`);
-    d.push(t.listTitle);
     const pm = prioMark(t.priority);
-    return `<div class="row ${t.completed ? 'done' : ''}" style="--c:${esc(t.color)}" data-act="open-task" data-task="${esc(t.id)}" data-drag="chip">
+    const sub = [o.overdue && t.due ? `原定 ${C.fmt.md(t.due)}` : '', t.listTitle].filter(Boolean).join(' · ');
+    return `<div class="row task ${t.completed ? 'done' : ''} ${o.compact ? 'compact' : ''}" style="--c:${esc(t.color)}" data-act="open-task" data-task="${esc(t.id)}" data-drag="task">
       <span class="check ${t.completed ? 'on' : ''}" data-act="toggle" data-task="${esc(t.id)}">${t.completed ? '✓' : ''}</span>
       <div class="body"><div class="t">${pm ? `<span class="prio">${pm}</span> ` : ''}${esc(t.title || '（无标题）')}</div>
-      <div class="d" style="${o.overdue ? 'color:var(--red)' : ''}">${esc(d.filter(Boolean).join(' · '))}</div></div>
-      <div class="acts">${o.inbox ? `<button data-act="task-today" data-task="${esc(t.id)}">今天</button>` : ''}
-        <button data-act="task-menu" data-task="${esc(t.id)}" aria-label="更多">⋯</button></div></div>`;
+        ${!o.compact && sub ? `<div class="d" style="${o.overdue ? 'color:var(--red)' : ''}">${esc(sub)}</div>` : ''}</div>
+      ${o.compact ? '' : `<button class="more" data-act="task-menu" data-task="${esc(t.id)}" aria-label="更多">⋯</button>`}</div>`;
   }
 
-  // ----- week
+  function taskChipHTML(t) {
+    const pm = prioMark(t.priority);
+    return `<div class="chip" style="--c:${esc(t.color)}" data-act="open-task" data-task="${esc(t.id)}" data-drag="task">
+      <span class="check" data-act="toggle" data-task="${esc(t.id)}"></span>
+      ${pm ? `<span class="prio">${pm}</span>` : ''}<span class="t">${esc(t.title || '（无标题）')}</span></div>`;
+  }
+
+  // ----- day
+
+  function dayHTML() {
+    const a = agenda(S.day);
+    const showDone = S.settings.showCompleted;
+    let h = `<div class="list" data-keep-scroll="day" data-swipe="day" data-drop-day="${+S.day}">`;
+    if (a.overdue.length) {
+      h += `<div class="sec red">逾期 ${a.overdue.length}<button class="pill-btn" data-act="overdue-today">全部移到今天</button></div>` +
+        a.overdue.map((t) => taskRowHTML(t, { overdue: true })).join('');
+    }
+    h += `<div class="sec">日程 ${a.events.length || ''}</div>`;
+    h += a.events.length ? a.events.map((e) => eventRowHTML(e)).join('') : '<div class="empty">没有日程</div>';
+    h += `<div class="sec">待办 ${a.tasks.length || ''}</div>`;
+    h += a.tasks.length ? a.tasks.map((t) => taskRowHTML(t)).join('') : '<div class="empty">没有待办，可以从下方待办区拖进来</div>';
+    if (showDone && a.done.length) h += `<div class="sec">已完成 ${a.done.length}</div>` + a.done.map((t) => taskRowHTML(t)).join('');
+    return h + '<div class="list-end"></div></div>';
+  }
+
+  // ----- week (seven days stacked)
 
   function weekHTML() {
-    const days = C.weekDays(S.day, ws());
-    const head = days.map((d) => `<div class="strip-day ${C.sameDay(d, new Date()) ? 'today' : ''}" data-act="goto-day" data-day="${+d}" data-drop-day="${+d}">
-      <span class="wd">${C.fmt.weekdayLetter(d)}</span><span class="num">${d.getDate()}</span></div>`).join('');
-    const allday = days.map((d) => {
+    const showDone = S.settings.showCompleted;
+    return `<div class="week" data-keep-scroll="week" data-swipe="week">${C.weekDays(S.day, ws()).map((d) => {
       const a = agenda(d);
-      const s = a.shifts[0] && a.shifts[0].shift;
-      const pending = a.untimed.length + a.overdue.length;
-      return `<div class="cell-ad" data-act="goto-day" data-day="${+d}" data-drop-day="${+d}">
-        ${s ? badge(s, 9) : ''}
-        ${a.allDay.slice(0, 2).map((e) => `<span class="mini" style="--c:${esc(e.color)}">${esc(e.title)}</span>`).join('')}
-        ${a.allDay.length > 2 ? `<span class="cnt">+${a.allDay.length - 2}</span>` : ''}
-        ${pending ? `<span class="cnt ${a.overdue.length ? 'red' : ''}">☑︎${pending}</span>` : ''}</div>`;
-    }).join('');
-    return `<div class="wk-head" data-swipe="week">${head}</div>
-      <div class="wk-allday"><div class="lab">全天</div>${allday}</div>${gridHTML(days, true)}`;
+      const items = a.events.map((e) => eventRowHTML(e, true)).join('') +
+        a.tasks.map((t) => taskRowHTML(t, { compact: true })).join('') +
+        (showDone ? a.done.map((t) => taskRowHTML(t, { compact: true })).join('') : '');
+      return `<section class="wday ${C.sameDay(d, new Date()) ? 'today' : ''} ${C.sameDay(d, S.day) ? 'sel' : ''}" data-drop-day="${+d}">
+        <div class="wday-head" data-act="goto-day" data-day="${+d}">
+          <span class="wd">${C.fmt.weekday(d)}</span><span class="dn">${C.fmt.md(d)}</span>
+          <span class="grow"></span><span class="cnt">${a.count ? a.count + ' 项' : ''}</span>
+          <span class="loadbar" style="background:${heat(level(d))}"></span></div>
+        <div class="wday-items">${items || '<div class="empty small">—</div>'}</div></section>`;
+    }).join('')}</div>`;
   }
 
   // ----- month
 
   function monthHTML() {
     const grid = C.monthGrid(S.day, ws());
-    const first = new Date(S.day.getFullYear(), S.day.getMonth(), 1);
-    const next = C.addMonths(first, 1);
     const cells = grid.map((d) => {
       const a = agenda(d);
-      const level = loadLevel(d);
-      const sh = a.shifts[0];
-      const ev = a.timed.filter((e) => !e.shift).length + a.allDay.length;
-      const tasks = a.pending;
-      const warn = sh && shortRest(sh) != null;
-      return `<div class="cell ${C.sameMonth(d, S.day) ? '' : 'out'} ${C.sameDay(d, new Date()) ? 'today' : ''} ${C.sameDay(d, S.day) ? 'sel' : ''} ${level >= 4 ? 'hot' : ''}"
-          style="--a:${[0, 0.16, 0.32, 0.52, 0.78][level]}" data-act="cell" data-day="${+d}" data-drop-day="${+d}">
-        <span class="n">${d.getDate()}</span><span class="mk">${sh ? badge(sh.shift) : ''}</span>
-        <span class="cnt">${ev ? ev : ''}${tasks ? ` <span class="${a.overdue.length ? 'red' : ''}">☑︎${tasks}</span>` : ''}</span>
-        ${warn ? '<span class="warn">⚠︎</span>' : ''}</div>`;
+      const lv = level(d);
+      return `<div class="cell ${C.sameMonth(d, S.day) ? '' : 'out'} ${C.sameDay(d, new Date()) ? 'today' : ''} ${C.sameDay(d, S.day) ? 'sel' : ''} ${lv >= 4 ? 'hot' : ''}"
+          style="--a:${[0, 0.16, 0.32, 0.52, 0.78][lv]}" data-act="cell" data-day="${+d}" data-drop-day="${+d}">
+        <span class="n">${d.getDate()}</span><span class="cnt">${a.count || ''}</span>
+        ${a.overdue.length ? '<span class="dot-red"></span>' : ''}</div>`;
     }).join('');
-    const occ = S.events.filter((e) => e.shift).map((e) => ({ templateId: e.shift.id, start: e.start, end: e.end, isAllDay: e.allDay || e.shift.isAllDay }));
-    const sum = C.shifts.summary(occ, first, next);
-    const counts = S.settings.shiftTemplates.filter((t) => sum.counts[t.id]).map((t) => `${t.name} ${sum.counts[t.id]}`);
-    const sumText = counts.length ? `${counts.join(' · ')} · 工时 ${Math.round(sum.minutes / 60)}h` : '本月未排班';
-    const brushBar = S.brushOn ? `<div class="brushbar"><div class="hint">选好班次后点日期即可排班；再点一次同一班次可取消</div>
-      <div class="opts">${S.settings.shiftTemplates.map((t) => `<button class="brush-opt ${S.brush === t.id ? 'on' : ''}" style="--c:${esc(t.color)}" data-act="brush" data-v="${esc(t.id)}">${badge(t)}${esc(t.name)}</button>`).join('')}
-      <button class="brush-opt ${S.brush === 'eraser' ? 'on' : ''}" style="--c:#8e8e93" data-act="brush" data-v="eraser">⌫ 清除</button></div></div>` : '';
+    const a = agenda(S.day);
+    const showDone = S.settings.showCompleted;
     return `<div class="month">
       <div class="mo-wd">${grid.slice(0, 7).map((d) => `<span>${C.fmt.weekdayLetter(d)}</span>`).join('')}</div>
       <div class="mo-grid" data-swipe="month">${cells}</div>
-      <div class="mo-sum"><span class="legend">空${[0, 1, 2, 3, 4].map((l) => `<i style="background:${heat(l)}"></i>`).join('')}满</span>
-        <span class="grow">${esc(sumText)}</span>
-        <button class="brush-btn ${S.brushOn ? 'on' : ''}" data-act="brush-toggle">🖌 排班</button></div>
-      ${brushBar}
-      ${digestHTML()}
-    </div>`;
+      <div class="mo-sum"><span class="legend">少${[0, 1, 2, 3, 4].map((l) => `<i style="background:${heat(l)}"></i>`).join('')}多</span>
+        <span class="grow">每天 ${S.settings.capacity} 项以上为最深色</span></div>
+      <div class="digest" data-keep-scroll="digest" data-drop-day="${+S.day}">
+        <div class="head"><span>${esc(C.fmt.relativeDay(S.day))}</span><button class="pill-btn" data-act="mode" data-v="day">日视图 ›</button></div>
+        ${a.count || (showDone && a.done.length) ? '' : '<div class="empty">这天没有安排</div>'}
+        ${a.events.map((e) => eventRowHTML(e, true)).join('')}
+        ${a.tasks.map((t) => taskRowHTML(t, { compact: true })).join('')}
+        ${showDone ? a.done.map((t) => taskRowHTML(t, { compact: true })).join('') : ''}
+      </div></div>`;
   }
 
-  function digestHTML() {
-    const a = agenda(S.day);
-    const empty = !a.shifts.length && !a.allDay.length && !a.timed.length && !a.pending && !a.completed.length;
-    return `<div class="digest" data-keep-scroll="digest">
-      <div class="head"><span>${esc(C.fmt.relativeDay(S.day))}</span><button class="pill-btn" data-act="mode" data-v="day">日视图 ›</button></div>
-      ${empty ? '<div class="empty">这天没有安排</div>' : ''}
-      ${a.shifts.map(shiftBannerHTML).join('')}
-      ${a.timed.filter((e) => !e.shift).map((e) => eventRowHTML(e, true)).join('')}
-      ${a.timedTasks.map((t) => taskRowHTML(t)).join('')}
-      <div class="chips">${a.allDay.map(eventChipHTML).join('')}${a.overdue.map((t) => taskChipHTML(t, { overdue: true })).join('')}
-        ${a.untimed.map((t) => taskChipHTML(t)).join('')}${S.settings.showCompleted ? a.completed.map((t) => taskChipHTML(t)).join('') : ''}</div>
+  // ----- to-do area
+
+  function renderInbox() {
+    const el = $('#inbox');
+    if (!S.ready || S.error) { el.innerHTML = ''; return; }
+    const items = inbox();
+    const open = S.settings.inboxOpen !== false;
+    el.innerHTML = `<div class="inbox ${open ? '' : 'closed'}" data-drop-inbox="1">
+      <div class="inbox-head" data-act="inbox-toggle">
+        <span class="title">待办区</span><span class="count">${items.length}</span>
+        <span class="hint">${items.length ? '长按拖到日期即安排' : ''}</span><span class="chev">${open ? '▾' : '▴'}</span></div>
+      ${open ? `<div class="inbox-body" data-keep-scroll="inbox">${items.length
+        ? `<div class="chips">${items.map(taskChipHTML).join('')}</div>`
+        : '<div class="empty small">没有未安排的待办。在下方输入新事项，或把日历里的待办拖回这里。</div>'}</div>` : ''}
     </div>`;
   }
 
@@ -1840,17 +1154,13 @@ window.__MOCK__ = (function () {
   function renderQuickAdd() {
     $('#qa').innerHTML = `<div class="qa">
       <div class="preview" id="qa-preview"></div>
-      <div class="qa-row" style="position:relative">
-        <button class="plus" data-act="plus" aria-label="新建">＋</button>
-        <input id="qa-input" type="text" enterkeyhint="done" autocomplete="off" placeholder="快速新增：明天下午3点 开会 1小时">
+      <div class="qa-row">
+        <button class="plus" data-act="new-task" aria-label="新建待办">＋</button>
+        <input id="qa-input" type="text" enterkeyhint="done" autocomplete="off" placeholder="新增待办，例如：明天 交报告">
         <button class="send" data-act="qa-submit" aria-label="新增" disabled>↑</button>
-        <div id="qa-menu"></div>
       </div></div>`;
     const input = $('#qa-input');
-    input.addEventListener('input', () => {
-      if (!input.value.trim()) S.override = 'automatic';
-      renderPreview();
-    });
+    input.addEventListener('input', renderPreview);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submitQuickAdd(); }
     });
@@ -1859,12 +1169,7 @@ window.__MOCK__ = (function () {
   function parseInput() {
     const input = $('#qa-input');
     const text = input ? input.value.trim() : '';
-    if (!text) return null;
-    return C.parseQuickAdd(text, {
-      now: new Date(), defaultDay: S.day, override: S.override,
-      defaultEventMinutes: S.settings.defaultEventMinutes,
-      shiftNames: S.settings.shiftTemplates.map((t) => t.name),
-    });
+    return text ? C.parseTask(text, { now: new Date() }) : null;
   }
 
   function renderPreview() {
@@ -1872,71 +1177,39 @@ window.__MOCK__ = (function () {
     if (!pv) return;
     const r = parseInput();
     const send = $('[data-act="qa-submit"]');
-    const plus = $('[data-act="plus"]');
-    if (plus) plus.style.display = r ? 'none' : '';
     if (!r) { pv.innerHTML = ''; if (send) send.disabled = true; return; }
-    const kinds = { event: '日程', allDayEvent: '全天日程', reminder: '待办', shift: '班次' };
-    const chips = [`<button class="pv kind" data-act="qa-kind">${kinds[r.kind]} ⇄</button>`, `<span class="pv">📅 ${esc(C.fmt.relativeDay(r.day))}</span>`];
-    if (r.kind === 'event' && r.start && r.end) chips.push(`<span class="pv mono">🕘 ${C.fmt.range(r.start, r.end)}</span>`);
-    else if (r.kind === 'reminder' && r.start) chips.push(`<span class="pv mono">🕘 ${C.fmt.hm(r.start)}</span>`);
-    else if (r.kind === 'shift') {
-      const t = S.settings.shiftTemplates.find((x) => x.name === r.shiftName);
-      if (t) chips.push(`<span class="pv mono">🕘 ${C.shifts.timeText(t)}</span>`);
+    let where = '待办区';
+    if (r.day) {
+      const rel = C.fmt.relativeDay(r.day);
+      where = /日 周/.test(rel) ? rel : `${rel}（${C.fmt.md(r.day)}）`;
     }
-    if (r.kind === 'reminder' && r.durationMinutes) chips.push(`<span class="pv">⏳ 约${C.fmt.duration(r.durationMinutes)}</span>`);
-    const target = r.kind === 'reminder'
-      ? (byHint(r.calendarHint, editableLists()) || S.lists.find((l) => l.id === defaultListId()))
-      : r.kind === 'shift' ? S.calendars.find((c) => c.id === shiftCalendarId())
-        : (byHint(r.calendarHint, editableCalendars()) || S.calendars.find((c) => c.id === defaultCalendarId()));
-    if (target) chips.push(`<span class="pv">🗂 ${esc(target.title)}</span>`);
+    const chips = [`<span class="pv kind">→ ${esc(where)}</span>`];
+    const list = byHint(r.listHint, editableLists()) || S.lists.find((l) => l.id === defaultListId());
+    if (list) chips.push(`<span class="pv">🗂 ${esc(list.title)}</span>`);
     if (r.priority) chips.push(`<span class="pv">${{ 1: '高', 5: '中', 9: '低' }[r.priority]}优先</span>`);
-    if (!r.title && r.kind !== 'shift') chips.push('<span class="pv muted">请输入标题</span>');
+    if (!r.title) chips.push('<span class="pv muted">请输入内容</span>');
     pv.innerHTML = chips.join('');
-    if (send) send.disabled = !r.title && r.kind !== 'shift';
+    if (send) send.disabled = !r.title;
   }
 
   async function submitQuickAdd() {
     const r = parseInput();
-    if (!r || (!r.title && r.kind !== 'shift')) return;
+    if (!r || !r.title) return;
     $('#qa-input').value = '';
-    S.override = 'automatic';
     renderPreview();
-    if (r.kind === 'shift') {
-      const t = S.settings.shiftTemplates.find((x) => x.name === r.shiftName);
-      if (t) { await applyShift(t, r.day); toast(`已排${t.name}：${C.fmt.relativeDay(r.day)}`); }
-      return;
-    }
-    if (r.kind === 'event' || r.kind === 'allDayEvent') {
-      const cal = byHint(r.calendarHint, editableCalendars());
-      const allDay = r.kind === 'allDayEvent';
-      await mutate('createEvent', {
-        title: r.title, allDay, start: +(r.start || r.day), end: +(allDay ? r.day : r.end),
-        calendarId: cal ? cal.id : defaultCalendarId(),
-      }, `已新增日程「${r.title}」`, (res) => res && res.uid && mutate('deleteEvent', { uid: res.uid }));
-      return;
-    }
-    const list = byHint(r.calendarHint, editableLists());
+    const list = byHint(r.listHint, editableLists());
+    const where = r.day ? C.fmt.relativeDay(r.day) : '待办区';
     await mutate('createReminder', {
-      title: r.title, due: +(r.start || r.day), hasTime: r.hasTime, priority: r.priority,
-      listId: list ? list.id : defaultListId(), duration: r.durationMinutes || S.settings.defaultTaskMinutes,
-    }, `已新增待办「${r.title}」`, (res) => res && res.id && mutate('deleteReminder', { id: res.id }));
+      title: r.title, due: r.day ? +r.day : null, hasTime: false, priority: r.priority,
+      listId: list ? list.id : defaultListId(),
+    }, `已加入${where}：「${r.title}」`, (res) => res && res.id && mutate('deleteReminder', { id: res.id }));
   }
 
   // ------------------------------------------------------------- sheets
 
-  function askConfirm(message, yesLabel, onYes) {
-    openSheet({ type: 'confirm', message, yesLabel, onYes });
-  }
-
-  function openSheet(sheet) {
-    S.sheet = sheet;
-    renderSheet();
-  }
-
-  function closeSheet() {
-    S.sheet = null;
-    renderSheet();
-  }
+  function openSheet(sheet) { S.sheet = sheet; renderSheet(); }
+  function closeSheet() { S.sheet = null; renderSheet(); }
+  function askConfirm(message, yesLabel, onYes) { openSheet({ type: 'confirm', message, yesLabel, onYes }); }
 
   function renderSheet() {
     const root = $('#sheet-root');
@@ -1948,8 +1221,8 @@ window.__MOCK__ = (function () {
     else if (s.type === 'settings') ({ head, body } = settingsSheet());
     else if (s.type === 'task-menu') ({ head, body } = taskMenu(s));
     else if (s.type === 'confirm') {
-      head = `<span style="width:60px"></span><h2>确认</h2><button class="text-btn" data-act="sheet-cancel">取消</button>`;
-      body = `<div class="note" style="text-align:center;font-size:16px;padding:18px">${esc(s.message)}</div>
+      head = `<span class="spacer"></span><h2>确认</h2><button class="text-btn" data-act="sheet-cancel">取消</button>`;
+      body = `<div class="note big">${esc(s.message)}</div>
         <div class="form-sec"><button class="danger" data-act="confirm-yes">${esc(s.yesLabel)}</button></div>`;
     }
     root.innerHTML = `<div class="backdrop" data-act="sheet-bg"><div class="sheet" data-act="noop">
@@ -1960,60 +1233,51 @@ window.__MOCK__ = (function () {
 
   const sw = (name, on) => `<label class="switch"><input type="checkbox" name="${name}" ${on ? 'checked' : ''}><span></span></label>`;
   const opt = (v, label, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(label)}</option>`;
+  const quickDays = () => `<div class="quick"><button data-act="qday" data-v="0">今天</button><button data-act="qday" data-v="1">明天</button>
+    <button data-act="qday" data-v="2">后天</button><button data-act="qday" data-v="mon">下周一</button></div>`;
 
   function eventEditor(s) {
-    const d = s.draft;
-    const ev = s.uid ? findEvent(s.uid) : null;
-    const ro = ev && !ev.canEdit;
-    const recurring = ev && ev.recurring;
-    const head = `<button class="text-btn" data-act="sheet-cancel">取消</button><h2>${s.isNew ? '新建日程' : '编辑日程'}</h2>
-      <button class="text-btn" data-act="event-save" style="font-weight:700" ${ro || recurring ? 'disabled' : ''}>保存</button>`;
+    const ev = findEvent(s.uid);
+    const ro = !ev.canEdit;
+    const locked = ro || ev.recurring;
+    const multi = ev.allDay && ev.days.length > 1;
+    const dis = locked ? 'disabled' : '';
+    const head = `<button class="text-btn" data-act="sheet-cancel">取消</button><h2>日程</h2>
+      <button class="text-btn strong" data-act="event-save" ${dis}>保存</button>`;
     const cals = editableCalendars();
     const body = `
-      <div class="form-sec"><div class="f"><input type="text" name="title" placeholder="标题" value="${esc(d.title)}"></div>
-        ${ev && ev.shift ? `<div class="f">${badge(ev.shift)} 班次：${esc(ev.shift.name)}</div>` : ''}</div>
-      <div class="form-sec" id="time-sec" data-allday="${d.allDay ? 1 : 0}">
-        <div class="f"><label>全天</label>${sw('allDay', d.allDay)}</div>
-        <div class="f"><label>开始</label><input type="date" name="sd" value="${dateValue(d.start)}"><input type="time" name="st" value="${timeValue(d.start)}" ${d.allDay ? 'hidden' : ''}></div>
-        <div class="f"><label>结束</label><input type="date" name="ed" value="${dateValue(d.end)}"><input type="time" name="et" value="${timeValue(d.end)}" ${d.allDay ? 'hidden' : ''}></div>
-        <div class="f" ${d.allDay ? 'hidden' : ''} id="dur-row"><div class="quick">${[15, 30, 60, 90, 120].map((m) =>
-          `<button data-act="dur" data-v="${m}">${m < 60 ? m + '分' : m % 60 ? (m / 60) + '小时' : m / 60 + '小时'}</button>`).join('')}</div></div>
+      <div class="form-sec"><div class="f"><input type="text" name="title" placeholder="标题" value="${esc(ev.title)}" ${dis}></div></div>
+      <div class="form-sec">
+        <div class="f"><label>${multi ? '开始日期' : '日期'}</label><input type="date" name="day" value="${dateValue(ev.start)}" ${dis}></div>
+        ${multi ? `<div class="f"><label>结束日期</label><input type="date" name="endDay" value="${dateValue(new Date(ev.days[ev.days.length - 1]))}" ${dis}></div>` : ''}
+        ${locked ? '' : `<div class="f">${quickDays()}</div>`}
       </div>
       <div class="form-sec">
-        <div class="f"><label>日历</label><select name="calendarId">${cals.map((c) => opt(c.id, c.title, c.id === d.calendarId)).join('')}
-          ${ev && !ev.canEdit ? opt(ev.calendarId, ev.calTitle, true) : ''}</select></div>
-        <div class="f"><input type="text" name="location" placeholder="地点" value="${esc(d.location)}"></div>
-        <div class="f"><textarea name="notes" placeholder="备注">${esc(d.notes)}</textarea></div>
+        <div class="f"><label>日历</label><select name="calendarId" ${dis}>${ro ? opt(ev.calendarId, ev.calTitle, true) : cals.map((c) => opt(c.id, c.title, c.id === ev.calendarId)).join('')}</select></div>
+        <div class="f"><input type="text" name="location" placeholder="地点" value="${esc(ev.location)}" ${dis}></div>
+        <div class="f"><textarea name="notes" placeholder="备注" ${dis}>${esc(ev.notes)}</textarea></div>
       </div>
-      ${recurring ? `<div class="form-sec"><div class="note">这是重复日程。为免改到整个系列，请用系统编辑器修改（可选择“仅此次”或“所有将来的”）。</div>
+      ${ev.recurring && !ro ? `<div class="form-sec"><div class="note">这是重复日程。为免改到整个系列，请用系统编辑器修改（可选择“仅此次”或“所有将来的”）。</div>
         <div class="f"><button class="text-btn" data-act="event-native">在系统编辑器中打开</button></div></div>` : ''}
       ${ro ? '<div class="form-sec"><div class="note">这个日历是只读的（例如订阅或节假日日历），不能修改。</div></div>' : ''}
-      ${ev && !ro && !recurring ? '<div class="form-sec"><button class="danger" data-act="event-delete">删除日程</button></div>' : ''}`;
+      ${locked ? '' : '<div class="form-sec"><button class="danger" data-act="event-delete">删除日程</button></div>'}`;
     return { head, body };
   }
 
   function taskEditor(s) {
     const d = s.draft;
-    const head = `<button class="text-btn" data-act="sheet-cancel">取消</button><h2>${s.isNew ? '新建待办' : '编辑待办'}</h2>
-      <button class="text-btn" data-act="task-save" style="font-weight:700">保存</button>`;
-    const durations = [15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 480];
-    if (!durations.includes(d.duration)) durations.push(d.duration);
-    durations.sort((a, b) => a - b);
+    const head = `<button class="text-btn" data-act="sheet-cancel">取消</button><h2>${s.isNew ? '新建待办' : '待办'}</h2>
+      <button class="text-btn strong" data-act="task-save">保存</button>`;
     const body = `
       <div class="form-sec"><div class="f"><input type="text" name="title" placeholder="标题" value="${esc(d.title)}"></div>
         ${s.isNew ? '' : `<div class="f"><label>已完成</label>${sw('completed', d.completed)}</div>`}</div>
-      <div class="form-sec" id="due-sec">
-        <div class="f"><label>日期</label>${sw('hasDate', d.hasDate)}</div>
-        <div class="f" data-need="date" ${d.hasDate ? '' : 'hidden'}><input type="date" name="dd" value="${dateValue(d.due)}" style="flex:1"></div>
-        <div class="f" data-need="date" ${d.hasDate ? '' : 'hidden'}><div class="quick">
-          <button data-act="qday" data-v="0">今天</button><button data-act="qday" data-v="1">明天</button>
-          <button data-act="qday" data-v="2">后天</button><button data-act="qday" data-v="mon">下周一</button></div></div>
-        <div class="f" data-need="date" ${d.hasDate ? '' : 'hidden'}><label>时间</label>${sw('hasTime', d.hasTime)}</div>
-        <div class="f" data-need="time" ${d.hasDate && d.hasTime ? '' : 'hidden'}><input type="time" name="dt" value="${timeValue(d.due)}" style="flex:1"></div>
-        <div class="f" data-need="time" ${d.hasDate && d.hasTime ? '' : 'hidden'}><label>预估时长</label>
-          <select name="duration">${durations.map((m) => opt(m, C.fmt.duration(m), m === d.duration)).join('')}</select></div>
+      <div class="form-sec">
+        <div class="f"><label>安排</label><div class="segf" id="where">
+          <button data-act="where" data-v="inbox" class="${d.day ? '' : 'on'}">待办区</button>
+          <button data-act="where" data-v="day" class="${d.day ? 'on' : ''}">指定日期</button></div></div>
+        <div class="f" data-need="day" ${d.day ? '' : 'hidden'}><input type="date" name="day" value="${dateValue(d.day || S.day)}" style="flex:1"></div>
+        <div class="f" data-need="day" ${d.day ? '' : 'hidden'}>${quickDays()}</div>
       </div>
-      <div class="fsec-foot">预估时长决定它在时间轴上占多长（保存在本机）。</div>
       <div class="form-sec">
         <div class="f"><label>优先级</label><div class="segf" id="prio">${[[0, '无'], [9, '低'], [5, '中'], [1, '高']].map(([v, l]) =>
           `<button data-act="prio" data-v="${v}" class="${d.priority === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
@@ -2026,133 +1290,44 @@ window.__MOCK__ = (function () {
 
   function taskMenu(s) {
     const t = findTask(s.id);
-    const head = `<span style="width:60px"></span><h2>${esc(t ? t.title : '')}</h2><button class="text-btn" data-act="sheet-cancel">完成</button>`;
-    const items = [['menu-toggle', t && t.completed ? '标为未完成' : '完成'], ['menu-today', '今天'], ['menu-postpone', '推迟一天'],
-      ['menu-nextweek', '下周一'], ['menu-inbox', '移到未排期'], ['menu-edit', '编辑…']];
-    const body = `<div class="form-sec">${items.map(([a, l]) => `<div class="f"><button class="text-btn" style="width:100%;text-align:left" data-act="${a}">${l}</button></div>`).join('')}</div>
+    const head = `<span class="spacer"></span><h2>${esc(t ? t.title : '')}</h2><button class="text-btn" data-act="sheet-cancel">完成</button>`;
+    const items = [['menu-day', '0', '今天'], ['menu-day', '1', '明天'], ['menu-day', '2', '后天'], ['menu-day', 'mon', '下周一'],
+      ['menu-inbox', '', '放回待办区'], ['menu-edit', '', '编辑…']];
+    const body = `<div class="form-sec">${items.map(([a, v, l]) =>
+      `<div class="f"><button class="text-btn wide" data-act="${a}" data-v="${v}">${l}</button></div>`).join('')}</div>
       <div class="form-sec"><button class="danger" data-act="task-delete">删除待办</button></div>`;
     return { head, body };
   }
 
   function settingsSheet() {
     const st = S.settings;
-    const head = `<span style="width:60px"></span><h2>设置</h2><button class="text-btn" data-act="settings-save" style="font-weight:700">完成</button>`;
-    const cals = editableCalendars();
-    const tpl = st.shiftTemplates.map((t, i) => `
-      <details data-tpl="${i}" class="form-sec" style="margin:8px 14px">
-        <summary class="f" style="list-style:none">${badge(t)} <span style="flex:1">${esc(t.name)}</span><span class="muted mono">${C.shifts.timeText(t)}</span></summary>
-        <div class="f"><label>名称</label><input type="text" name="tpl-name" value="${esc(t.name)}" style="text-align:right"></div>
-        <div class="f"><label>简称（1–2 字）</label><input type="text" name="tpl-short" maxlength="2" value="${esc(t.shortName)}" style="text-align:right"></div>
-        <div class="f"><label>颜色</label><input type="color" name="tpl-color" value="${esc(t.color)}"></div>
-        <div class="f"><label>全天（休息、年假）</label>${sw('tpl-allday', t.isAllDay)}</div>
-        <div class="f"><label>开始</label><input type="time" name="tpl-start" value="${C.fmt.clock(t.startMinute)}"></div>
-        <div class="f"><label>时长（小时）</label><input type="number" name="tpl-hours" min="0.5" max="48" step="0.5" value="${t.durationMinutes / 60}" style="width:80px"></div>
-        <div class="f"><button class="text-btn" style="color:var(--red)" data-act="tpl-delete" data-v="${i}">删除这个班次</button></div>
-      </details>`).join('');
+    const head = `<span class="spacer"></span><h2>设置</h2><button class="text-btn strong" data-act="settings-save">完成</button>`;
     const toggles = (items) => items.map((c) => `<div class="f"><span class="dot-sw" style="--c:${esc(c.color)}"></span><label>${esc(c.title)}</label>
       <label class="switch"><input type="checkbox" data-cal="${esc(c.id)}" ${st.hidden.includes(c.id) ? '' : 'checked'}><span></span></label></div>`).join('');
-    const stepper = (name, value, unit) => `<div class="stepper"><button data-act="step" data-name="${name}" data-v="-1">−</button>
-      <span class="mono" data-show="${name}" style="min-width:64px;text-align:center">${value}${unit}</span>
-      <button data-act="step" data-name="${name}" data-v="1">＋</button></div>`;
     const body = `
-      <div class="fsec-title">班次模板</div>${tpl}
-      <div class="form-sec"><div class="f"><button class="text-btn" data-act="tpl-add">＋ 新增班次</button></div></div>
-      <div class="fsec-foot">在月视图点「🖌 排班」，选班次后点日期即可排班；快速新增输入「周五 夜班」也可以。班次以标题辨认，所以请别重名。</div>
-      <div class="fsec-title">排班</div>
+      <div class="fsec-title">新增</div>
       <div class="form-sec">
-        <div class="f"><label>写入日历</label><select name="shiftCalendarId">${opt('', '默认日历', !st.shiftCalendarId)}${cals.map((c) => opt(c.id, c.title, c.id === st.shiftCalendarId)).join('')}</select></div>
-        <div class="f"><label>两班最短间隔</label>${stepper('restHours', st.restHours, ' 小时')}</div>
-      </div>
-      <div class="fsec-foot">建议先在系统「日历」App 建一个「排班」日历，再在这里选择它。</div>
-      <div class="fsec-title">负荷热力图</div>
-      <div class="form-sec"><div class="f"><label>每天可用</label>${stepper('capacityHours', st.capacityHours, ' 小时')}</div></div>
-      <div class="fsec-title">新建时默认</div>
-      <div class="form-sec">
-        <div class="f"><label>日程写入</label><select name="defaultEventCalendarId">${opt('', '系统默认', !st.defaultEventCalendarId)}${cals.map((c) => opt(c.id, c.title, c.id === st.defaultEventCalendarId)).join('')}</select></div>
         <div class="f"><label>待办写入</label><select name="defaultReminderListId">${opt('', '系统默认', !st.defaultReminderListId)}${editableLists().map((l) => opt(l.id, l.title, l.id === st.defaultReminderListId)).join('')}</select></div>
-        <div class="f"><label>日程时长</label>${stepper('defaultEventMinutes', st.defaultEventMinutes, ' 分')}</div>
-        <div class="f"><label>待办预估</label>${stepper('defaultTaskMinutes', st.defaultTaskMinutes, ' 分')}</div>
       </div>
-      <div class="fsec-title">显示与通知</div>
+      <div class="fsec-title">显示</div>
       <div class="form-sec">
+        <div class="f"><label>每天几项算“满”</label><div class="stepper"><button data-act="cap" data-v="-1">−</button>
+          <span class="mono" id="cap">${st.capacity}</span><button data-act="cap" data-v="1">＋</button></div></div>
         <div class="f"><label>显示已完成的待办</label>${sw('showCompleted', st.showCompleted)}</div>
-        <div class="f"><label>每周从</label><div class="segf" id="wstart">${[[1, '周一'], [0, '周日']].map(([v, l]) => `<button data-act="wstart" data-v="${v}" class="${st.weekStart === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-        <div class="f"><label>定时待办到点通知</label>${sw('notifyTasks', st.notifyTasks)}</div>
+        <div class="f"><label>每周从</label><div class="segf" id="wstart">${[[1, '周一'], [0, '周日']].map(([v, l]) =>
+          `<button data-act="wstart" data-v="${v}" class="${st.weekStart === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
       </div>
-      <div class="fsec-foot">Scriptable 无法替待办设定系统闹钟，所以由 Scriptable 在待办时间发通知（未来 7 天内）。若同一待办在「提醒事项」里另有闹钟，会收到两次。</div>
+      <div class="fsec-foot">月视图与日期条的颜色深浅 = 当天日程与待办的件数。</div>
       <div class="fsec-title">显示的日历</div><div class="form-sec">${toggles(S.calendars)}</div>
       <div class="fsec-title">显示的提醒事项列表</div><div class="form-sec">${toggles(S.lists)}</div>
       <div class="form-sec"><div class="f"><button class="text-btn" data-act="self-update">检查更新</button>
-        <span class="muted mono" style="margin-left:auto;font-size:12px">${esc(S.version)}</span></div></div>
-      <div class="fsec-foot">一览 · Scriptable 版 · 数据直接读写系统日历与提醒事项。「检查更新」会从 GitHub 下载最新版覆盖这个脚本。</div>`;
+        <span class="muted mono version">${esc(S.version)}</span></div></div>
+      <div class="fsec-foot">一览 · Scriptable 版 · 直接读写系统日历与提醒事项。「检查更新」会从 GitHub 下载最新版覆盖这个脚本。</div>`;
     return { head, body };
   }
 
-  function readTemplates() {
-    return $$('#sheet-root [data-tpl]').map((el) => {
-      const old = S.settings.shiftTemplates[+el.dataset.tpl] || {};
-      const [h, m] = ($('[name=tpl-start]', el).value || '08:00').split(':').map(Number);
-      return {
-        id: old.id || ('tpl-' + Date.now() + Math.random().toString(16).slice(2, 6)),
-        name: $('[name=tpl-name]', el).value.trim() || '班次',
-        shortName: $('[name=tpl-short]', el).value.trim(),
-        color: $('[name=tpl-color]', el).value,
-        isAllDay: $('[name=tpl-allday]', el).checked,
-        startMinute: h * 60 + m,
-        durationMinutes: Math.round(clamp(parseFloat($('[name=tpl-hours]', el).value) || 8, 0.5, 48) * 60),
-      };
-    });
-  }
-
-  function newEventDraft(start, end) {
-    return { title: '', allDay: false, start, end, calendarId: defaultCalendarId(), location: '', notes: '' };
-  }
-
-  function openEvent(ev) {
-    openSheet({ type: 'event', uid: ev.uid, draft: {
-      title: ev.title, allDay: ev.allDay, start: ev.start, end: ev.allDay ? C.startOfDay(ev.end) : ev.end,
-      calendarId: ev.calendarId, location: ev.location || '', notes: ev.notes || '' } });
-  }
-
-  function openTask(t) {
-    openSheet({ type: 'task', id: t.id, draft: {
-      title: t.title, notes: t.notes || '', hasDate: !!t.due, hasTime: !!t.hasTime, due: t.due || C.startOfDay(S.day),
-      duration: t.duration, priority: t.priority || 0, listId: t.listId, completed: !!t.completed } });
-  }
-
-  function newTask(day) {
-    openSheet({ type: 'task', isNew: true, draft: {
-      title: '', notes: '', hasDate: true, hasTime: false, due: C.startOfDay(day), duration: S.settings.defaultTaskMinutes,
-      priority: 0, listId: defaultListId(), completed: false } });
-  }
-
-  function readEventForm() {
-    const root = $('#sheet-root');
-    const allDay = $('[name=allDay]', root).checked;
-    let start = fromInputs($('[name=sd]', root).value, allDay ? '00:00' : $('[name=st]', root).value);
-    let end = fromInputs($('[name=ed]', root).value, allDay ? '00:00' : $('[name=et]', root).value);
-    if (allDay) { start = C.startOfDay(start); end = C.startOfDay(end < start ? start : end); }
-    else if (end <= start) end = new Date(start.getTime() + 15 * 60e3);
-    return {
-      title: $('[name=title]', root).value.trim() || '新日程', allDay, start: +start, end: +end,
-      calendarId: $('[name=calendarId]', root).value,
-      location: $('[name=location]', root).value.trim(), notes: $('[name=notes]', root).value,
-    };
-  }
-
-  function readTaskForm() {
-    const root = $('#sheet-root');
-    const hasDate = $('[name=hasDate]', root).checked;
-    const hasTime = hasDate && $('[name=hasTime]', root).checked;
-    const due = hasDate ? fromInputs($('[name=dd]', root).value, hasTime ? $('[name=dt]', root).value : '00:00') : null;
-    const prio = $('#prio .on', root);
-    const done = $('[name=completed]', root);
-    return {
-      title: $('[name=title]', root).value.trim() || '新待办', notes: $('[name=notes]', root).value,
-      due: due ? +due : null, hasTime, priority: prio ? +prio.dataset.v : 0,
-      listId: $('[name=listId]', root).value, duration: +($('[name=duration]', root) || {}).value || S.settings.defaultTaskMinutes,
-      completed: done ? done.checked : false,
-    };
+  function quickDay(v) {
+    return v === 'mon' ? C.addDays(C.startOfWeek(today(), 1), 7) : C.addDays(today(), +v);
   }
 
   // ------------------------------------------------------------- actions
@@ -2170,7 +1345,12 @@ window.__MOCK__ = (function () {
     else setDay(C.addMonths(S.day, dir));
   }
 
-  let lastSurfaceTap = null;
+  function openTask(t) {
+    openSheet({ type: 'task', id: t.id, draft: {
+      title: t.title, notes: t.notes || '', day: t.due ? C.startOfDay(t.due) : null,
+      priority: t.priority || 0, listId: t.listId, completed: !!t.completed } });
+  }
+
   const Actions = {
     noop() {},
     prev: () => step(-1),
@@ -2181,70 +1361,20 @@ window.__MOCK__ = (function () {
     'self-update'() { closeSheet(); toast('正在检查更新…'); mutate('selfUpdate', {}); },
     settings: () => openSheet({ type: 'settings' }),
     mode(el) { S.mode = el.dataset.v; render(); },
-    style() { saveSettings({ dayStyle: S.settings.dayStyle === 'timeline' ? 'list' : 'timeline' }); render(); },
     pick(el) { setDay(new Date(+el.dataset.day)); },
     'goto-day'(el) { setDay(new Date(+el.dataset.day), 'day'); },
-    inbox() { S.showInbox = !S.showInbox; render(); },
-    'list-inbox'() { S.listInbox = !S.listInbox; render(); },
-    collapse() { S.trayCollapsed = !S.trayCollapsed; render(); },
+    cell(el) { setDay(new Date(+el.dataset.day)); },
+    'inbox-toggle'() { saveSettings({ inboxOpen: S.settings.inboxOpen === false }); renderInbox(); },
     toggle(el) { const t = findTask(el.dataset.task); if (t) toggleTask(t); },
     'open-task'(el) { const t = findTask(el.dataset.task); if (t) openTask(t); },
-    'open-event'(el) { const e = findEvent(el.dataset.uid); if (e) openEvent(e); },
-    'open-block'(el) {
-      const b = S.blocks[el.dataset.blk];
-      if (!b) return;
-      if (b.src === 'e') openEvent(b.ref); else openTask(b.ref);
+    'open-event'(el) { if (findEvent(el.dataset.uid)) openSheet({ type: 'event', uid: el.dataset.uid }); },
+    async 'overdue-today'() {
+      for (const t of agenda(today()).overdue.slice()) await scheduleTask(t, today());
     },
-    surface(el, ev) {
-      const now = Date.now();
-      const y = ev.clientY, x = ev.clientX;
-      if (lastSurfaceTap && now - lastSurfaceTap.t < 350 && Math.abs(lastSurfaceTap.y - y) < 30) {
-        lastSurfaceTap = null;
-        const g = gridGeometry(el.closest('.grid-scroll'));
-        const p = g.at(x, y);
-        const start = Math.max(0, Math.floor(p.minute / 15) * 15);
-        openSheet({ type: 'event', isNew: true, draft: newEventDraft(C.dateOnDay(g.days[p.col], start),
-          C.dateOnDay(g.days[p.col], start + S.settings.defaultEventMinutes)) });
-      } else lastSurfaceTap = { t: now, y };
+    'new-task'() {
+      openSheet({ type: 'task', isNew: true, draft: { title: '', notes: '', day: null, priority: 0, listId: defaultListId(), completed: false } });
     },
-    cell(el) {
-      const day = new Date(+el.dataset.day);
-      if (S.brushOn && S.brush) {
-        if (S.brush === 'eraser') clearShifts(day);
-        else {
-          const t = S.settings.shiftTemplates.find((x) => x.id === S.brush);
-          if (t) applyShift(t, day);
-        }
-      }
-      S.day = C.startOfDay(day);
-      render();
-      load();
-    },
-    'brush-toggle'() {
-      S.brushOn = !S.brushOn;
-      if (S.brushOn && !S.brush) S.brush = (S.settings.shiftTemplates[0] || {}).id || 'eraser';
-      render();
-    },
-    brush(el) { S.brush = el.dataset.v; render(); },
-    plus(el) {
-      const menu = $('#qa-menu');
-      if (menu.innerHTML) { menu.innerHTML = ''; return; }
-      menu.innerHTML = `<div class="menu"><button data-act="new-event">📅 新建日程</button><button data-act="new-task">☑︎ 新建待办</button></div>`;
-    },
-    'new-event'() {
-      $('#qa-menu').innerHTML = '';
-      const isToday = C.sameDay(S.day, new Date());
-      const start = C.dateOnDay(S.day, Math.min(isToday ? new Date().getHours() + 1 : 9, 23) * 60);
-      openSheet({ type: 'event', isNew: true, draft: newEventDraft(start, new Date(start.getTime() + S.settings.defaultEventMinutes * 60e3)) });
-    },
-    'new-task'() { $('#qa-menu').innerHTML = ''; newTask(S.day); },
     'qa-submit': () => submitQuickAdd(),
-    'qa-kind'() {
-      const r = parseInput();
-      if (!r) return;
-      S.override = r.kind === 'reminder' ? 'event' : 'reminder';
-      renderPreview();
-    },
     'toast-action'() {
       const a = S.toast && S.toast.action;
       S.toast = null;
@@ -2253,22 +1383,70 @@ window.__MOCK__ = (function () {
     },
     'sheet-bg'(el, ev) { if (ev.target === el) closeSheet(); },
     'sheet-cancel': () => closeSheet(),
-    dur(el) {
-      const root = $('#sheet-root');
-      const start = fromInputs($('[name=sd]', root).value, $('[name=st]', root).value);
-      const end = new Date(start.getTime() + +el.dataset.v * 60e3);
-      $('[name=ed]', root).value = dateValue(end);
-      $('[name=et]', root).value = timeValue(end);
+    'confirm-yes'() {
+      const fn = S.sheet && S.sheet.onYes;
+      closeSheet();
+      if (fn) fn();
     },
-    async 'event-save'() {
+    qday(el) {
+      $('#sheet-root [name=day]').value = dateValue(quickDay(el.dataset.v));
+    },
+    where(el) {
+      $$('#where button').forEach((b) => b.classList.toggle('on', b === el));
+      $$('#sheet-root [data-need=day]').forEach((x) => { x.hidden = el.dataset.v !== 'day'; });
+    },
+    prio(el) { $$('#prio button').forEach((b) => b.classList.toggle('on', b === el)); },
+    async 'task-save'() {
       const s = S.sheet;
-      const f = readEventForm();
+      const root = $('#sheet-root');
+      const onDay = $('#where .on', root).dataset.v === 'day';
+      const day = onDay ? fromDateValue($('[name=day]', root).value) : null;
+      const prio = $('#prio .on', root);
+      const done = $('[name=completed]', root);
+      const f = {
+        title: $('[name=title]', root).value.trim() || '新待办', notes: $('[name=notes]', root).value,
+        priority: prio ? +prio.dataset.v : 0, listId: $('[name=listId]', root).value,
+      };
       closeSheet();
       if (s.isNew) {
-        await mutate('createEvent', f, `已新增日程「${f.title}」`, (res) => res && res.uid && mutate('deleteEvent', { uid: res.uid }));
-      } else {
-        await mutate('updateEvent', Object.assign({ uid: s.uid }, f));
+        await mutate('createReminder', Object.assign(f, { due: day ? +day : null, hasTime: false }),
+          `已加入${day ? C.fmt.relativeDay(day) : '待办区'}：「${f.title}」`, (res) => res && res.id && mutate('deleteReminder', { id: res.id }));
+        return;
       }
+      const t = findTask(s.id);
+      if (!t) return;
+      // keep a time the reminder already had when only the day changes
+      let due = day;
+      if (day && t.hasTime && t.due) due = new Date(day.getFullYear(), day.getMonth(), day.getDate(), t.due.getHours(), t.due.getMinutes());
+      await mutate('updateReminder', Object.assign(f, {
+        id: s.id, due: due ? +due : null, hasTime: !!(due && t.hasTime), completed: done ? done.checked : t.completed,
+      }));
+    },
+    'task-delete'() {
+      const id = S.sheet.id;
+      const t = findTask(id);
+      if (t) askConfirm(`删除「${t.title}」？`, '删除待办', () => mutate('deleteReminder', { id }, '已删除待办'));
+    },
+    async 'event-save'() {
+      const ev = findEvent(S.sheet.uid);
+      const root = $('#sheet-root');
+      const day = fromDateValue($('[name=day]', root).value);
+      const delta = C.daysBetween(ev.start, day);
+      const start = C.addDays(ev.start, delta);
+      let end = C.addDays(ev.end, delta);
+      const endInput = $('[name=endDay]', root);
+      if (endInput) {
+        // all-day events end at 23:59:59 of their last day
+        const last = fromDateValue(endInput.value);
+        end = new Date(+C.addDays(C.startOfDay(last < day ? day : last), 1) - 1000);
+      }
+      const payload = {
+        uid: ev.uid, title: $('[name=title]', root).value.trim() || ev.title, start: +start, end: +end,
+        calendarId: $('[name=calendarId]', root).value, location: $('[name=location]', root).value.trim(),
+        notes: $('[name=notes]', root).value,
+      };
+      closeSheet();
+      await mutate('updateEvent', payload);
     },
     'event-delete'() {
       const uid = S.sheet.uid;
@@ -2280,77 +1458,20 @@ window.__MOCK__ = (function () {
       closeSheet();
       mutate('editNative', { uid });
     },
-    qday(el) {
-      const root = $('#sheet-root');
-      const today = C.startOfDay(new Date());
-      const v = el.dataset.v;
-      const d = v === 'mon' ? C.addDays(C.startOfWeek(today, 1), 7) : C.addDays(today, +v);
-      $('[name=dd]', root).value = dateValue(d);
-    },
-    prio(el) { $$('#prio button').forEach((b) => b.classList.toggle('on', b === el)); },
-    async 'task-save'() {
-      const s = S.sheet;
-      const f = readTaskForm();
-      closeSheet();
-      if (s.isNew) {
-        await mutate('createReminder', f, `已新增待办「${f.title}」`, (res) => res && res.id && mutate('deleteReminder', { id: res.id }));
-      } else {
-        await mutate('updateReminder', Object.assign({ id: s.id }, f));
-      }
-    },
-    'task-delete'() {
-      const id = S.sheet.id;
-      const t = findTask(id);
-      if (t) askConfirm(`删除「${t.title}」？`, '删除待办', () => mutate('deleteReminder', { id }, '已删除待办'));
-    },
-    'confirm-yes'() {
-      const fn = S.sheet && S.sheet.onYes;
-      closeSheet();
-      if (fn) fn();
-    },
     'task-menu'(el) { openSheet({ type: 'task-menu', id: el.dataset.task }); },
-    'task-today'(el) { const t = findTask(el.dataset.task); if (t) scheduleTask(t, C.startOfDay(new Date()), false); },
-    'menu-toggle'() { const t = findTask(S.sheet.id); closeSheet(); if (t) toggleTask(t); },
-    'menu-today'() { const t = findTask(S.sheet.id); closeSheet(); if (t) scheduleTask(t, C.startOfDay(new Date()), false); },
-    'menu-postpone'() { const t = findTask(S.sheet.id); closeSheet(); if (t) postpone(t, 1); },
-    'menu-nextweek'() {
-      const t = findTask(S.sheet.id);
-      closeSheet();
-      if (t) scheduleTask(t, C.addDays(C.startOfWeek(new Date(), 1), 7), false);
-    },
-    'menu-inbox'() { const t = findTask(S.sheet.id); closeSheet(); if (t) scheduleTask(t, null, false); },
+    'menu-day'(el) { const t = findTask(S.sheet.id); closeSheet(); if (t) scheduleTask(t, quickDay(el.dataset.v)); },
+    'menu-inbox'() { const t = findTask(S.sheet.id); closeSheet(); if (t) scheduleTask(t, null); },
     'menu-edit'() { const t = findTask(S.sheet.id); if (t) openTask(t); },
-    step(el) {
-      const name = el.dataset.name;
-      const steps = { restHours: [1, 0, 24], capacityHours: [1, 2, 16], defaultEventMinutes: [15, 15, 240], defaultTaskMinutes: [15, 15, 240] };
-      const [inc, lo, hi] = steps[name];
-      S.settings[name] = clamp((S.settings[name] || 0) + inc * +el.dataset.v, lo, hi);
-      const unit = { restHours: ' 小时', capacityHours: ' 小时', defaultEventMinutes: ' 分', defaultTaskMinutes: ' 分' }[name];
-      $(`[data-show="${name}"]`).textContent = S.settings[name] + unit;
+    cap(el) {
+      S.settings.capacity = clamp(S.settings.capacity + +el.dataset.v, 1, 30);
+      $('#cap').textContent = S.settings.capacity;
     },
     wstart(el) { $$('#wstart button').forEach((b) => b.classList.toggle('on', b === el)); },
-    'tpl-add'() {
-      S.settings.shiftTemplates = readTemplates().concat([{ id: 'tpl-' + Date.now(), name: '新班次', shortName: '新', color: '#0EA5E9',
-        startMinute: 540, durationMinutes: 480, isAllDay: false }]);
-      renderSheet();
-      const last = $$('#sheet-root [data-tpl]').pop();
-      if (last) last.open = true;
-    },
-    'tpl-delete'(el) {
-      const list = readTemplates();
-      list.splice(+el.dataset.v, 1);
-      S.settings.shiftTemplates = list;
-      renderSheet();
-    },
     async 'settings-save'() {
       const root = $('#sheet-root');
       const st = S.settings;
-      st.shiftTemplates = readTemplates();
-      st.shiftCalendarId = $('[name=shiftCalendarId]', root).value || null;
-      st.defaultEventCalendarId = $('[name=defaultEventCalendarId]', root).value || null;
       st.defaultReminderListId = $('[name=defaultReminderListId]', root).value || null;
       st.showCompleted = $('[name=showCompleted]', root).checked;
-      st.notifyTasks = $('[name=notifyTasks]', root).checked;
       const wsBtn = $('#wstart .on', root);
       st.weekStart = wsBtn ? +wsBtn.dataset.v : 1;
       st.hidden = $$('[data-cal]', root).filter((c) => !c.checked).map((c) => c.dataset.cal);
@@ -2362,247 +1483,115 @@ window.__MOCK__ = (function () {
     },
   };
 
+  let suppressClickUntil = 0;
   document.addEventListener('click', (e) => {
     if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
     const el = e.target.closest('[data-act]');
-    if (!el) { const m = $('#qa-menu'); if (m && m.innerHTML) m.innerHTML = ''; return; }
+    if (!el) return;
     const fn = Actions[el.dataset.act];
     if (fn) fn(el, e);
   }, true);
 
-  document.addEventListener('change', (e) => {
-    const root = $('#sheet-root');
-    if (!root.contains(e.target)) return;
-    const name = e.target.name;
-    if (name === 'allDay') {
-      const on = e.target.checked;
-      $$('[name=st],[name=et]', root).forEach((i) => { i.hidden = on; });
-      const dr = $('#dur-row', root);
-      if (dr) dr.hidden = on;
-    } else if (name === 'sd' || name === 'st') {
-      // keep the length when the start moves
-      const s = S.sheet;
-      const prev = s.lastStart || s.draft.start;
-      const start = fromInputs($('[name=sd]', root).value, $('[name=st]', root).value);
-      const end = fromInputs($('[name=ed]', root).value, $('[name=et]', root).value);
-      const moved = new Date(end.getTime() + (start - prev));
-      $('[name=ed]', root).value = dateValue(moved);
-      $('[name=et]', root).value = timeValue(moved);
-      s.lastStart = start;
-    } else if (name === 'hasDate' || name === 'hasTime') {
-      const hasDate = $('[name=hasDate]', root).checked;
-      const hasTime = hasDate && $('[name=hasTime]', root).checked;
-      $$('[data-need=date]', root).forEach((el) => { el.hidden = !hasDate; });
-      $$('[data-need=time]', root).forEach((el) => { el.hidden = !hasTime; });
-    }
-  });
-
   // ------------------------------------------------------------- gestures
+  // Long-press an item, then drag it onto a day (date strip, week section,
+  // month cell, day list) or onto the to-do area. Horizontal swipes page.
 
-  const Gest = { pending: null, active: null, pinch: null, swipe: null };
-  let suppressClickUntil = 0;
+  const Gest = { pending: null, active: null, swipe: null };
 
-  function gridGeometry(scrollEl) {
-    const grid = scrollEl.firstElementChild;
-    const rect = grid.getBoundingClientRect();
-    const days = scrollEl.dataset.days.split(',').map((x) => new Date(+x));
-    const gutter = parseFloat(getComputedStyle(grid).getPropertyValue('--gutter')) || 46;
-    const hh = parseFloat(getComputedStyle(grid).getPropertyValue('--hh')) || 56;
-    const colW = (rect.width - gutter) / days.length;
-    return {
-      scrollEl, grid, days, gutter, hh, colW, compact: scrollEl.dataset.compact === '1',
-      at(x, y) {
-        const r = grid.getBoundingClientRect();
-        return { col: clamp(Math.floor((x - r.left - gutter) / colW), 0, days.length - 1), minute: (y - r.top) / hh * 60 };
-      },
-    };
+  function dropTarget(x, y) {
+    const under = document.elementFromPoint(x, y);
+    if (!under) return null;
+    const inboxEl = under.closest('[data-drop-inbox]');
+    if (inboxEl) return { el: inboxEl, inbox: true };
+    const dayEl = under.closest('[data-drop-day]');
+    if (dayEl) return { el: dayEl, day: new Date(+dayEl.dataset.dropDay) };
+    return null;
   }
 
-  /** Scrolls the grid while the finger rests near its top or bottom edge (once it has moved). */
-  function startAutoScroll(state) {
-    state.x0 = state.x;
-    state.y0 = state.y;
-    const tick = () => {
-      if (Gest.active !== state.handler) return;
-      if (!state.armed) {
-        state.armed = Math.hypot(state.x - state.x0, state.y - state.y0) > 12;
-        requestAnimationFrame(tick);
-        return;
+  function dragItem(p) {
+    const isEvent = p.kind === 'event';
+    const item = isEvent ? findEvent(p.el.dataset.uid) : findTask(p.el.dataset.task);
+    if (!item) return null;
+    if (isEvent && (!item.canEdit || item.recurring)) {
+      toast(item.recurring ? '重复日程不能直接拖动：点开后用系统编辑器修改' : '这个日历是只读的，不能移动');
+      return null;
+    }
+    const ghost = document.createElement('div');
+    ghost.className = 'floating';
+    document.body.appendChild(ghost);
+    p.el.classList.add('lifted');
+    const st = { x: p.x, y: p.y, target: null, hot: null };
+    const update = () => {
+      ghost.style.left = st.x + 'px';
+      ghost.style.top = st.y + 'px';
+      const t = dropTarget(st.x, st.y);
+      st.target = t;
+      let label = item.title || '（无标题）';
+      if (t && t.inbox) label += isEvent ? ' ✕ 日程不能放进待办区' : ' → 待办区';
+      else if (t) label += ` → ${C.fmt.relativeDay(t.day)}`;
+      ghost.textContent = label;
+      const hot = t ? t.el : null;
+      if (hot !== st.hot) {
+        if (st.hot) st.hot.classList.remove('drop-hot');
+        if (hot) hot.classList.add('drop-hot');
+        st.hot = hot;
       }
-      const r = state.geo.scrollEl.getBoundingClientRect();
-      let dy = 0;
-      if (state.y < r.top + 44) dy = -Math.ceil((r.top + 44 - state.y) / 6);
-      else if (state.y > r.bottom - 44) dy = Math.ceil((state.y - (r.bottom - 44)) / 6);
-      if (dy) {
-        state.geo.scrollEl.scrollTop += dy;
-        state.handler.move(state.x, state.y);
+    };
+    const cleanup = () => {
+      ghost.remove();
+      p.el.classList.remove('lifted');
+      if (st.hot) st.hot.classList.remove('drop-hot');
+    };
+    const handler = {
+      move(x, y) { st.x = x; st.y = y; update(); },
+      end() {
+        cleanup();
+        const t = st.target;
+        if (!t) return;
+        if (t.inbox) {
+          if (isEvent) toast('日程需要日期，不能放进待办区');
+          else if (item.due) scheduleTask(item, null);
+          return;
+        }
+        if (isEvent) moveEventToDay(item, t.day);
+        else if (!item.due || !C.sameDay(item.due, t.day)) scheduleTask(item, t.day);
+      },
+      cancel() { cleanup(); },
+    };
+    st.handler = handler;
+    update();
+    autoScroll(st);
+    return handler;
+  }
+
+  /** Scrolls the list under the finger when it rests near the list's top or bottom edge. */
+  function autoScroll(st) {
+    const tick = () => {
+      if (Gest.active !== st.handler) return;
+      const under = document.elementFromPoint(st.x, st.y);
+      const scroller = under && under.closest('[data-keep-scroll]');
+      if (scroller) {
+        const r = scroller.getBoundingClientRect();
+        let dy = 0;
+        if (st.y < r.top + 36) dy = -Math.ceil((r.top + 36 - st.y) / 5);
+        else if (st.y > r.bottom - 36) dy = Math.ceil((st.y - (r.bottom - 36)) / 5);
+        if (dy) { scroller.scrollTop += dy; st.handler.move(st.x, st.y); }
       }
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }
 
-  /** Long-press drag of a block (move) or of its bottom edge (resize). */
-  function dragBlock(p) {
-    const el = p.el.closest('.blk');
-    const b = S.blocks[el.dataset.blk];
-    if (!b) return null;
-    const geo = gridGeometry(el.closest('.grid-scroll'));
-    const resize = p.kind === 'resize';
-    const stepM = geo.hh >= 100 ? 5 : 15;
-    const st = { geo, x: p.x, y: p.y, scroll0: geo.scrollEl.scrollTop, delta: 0, days: 0 };
-    el.classList.add('dragging');
-    const tip = document.createElement('div');
-    tip.className = 'tip';
-    el.appendChild(tip);
-    const n = geo.days.length;
-    const x0 = (b.dayIndex + b.slot.column / b.slot.columnCount) / n;
-    const update = () => {
-      const dy = (st.y - p.y0) + (geo.scrollEl.scrollTop - st.scroll0);
-      const raw = dy / geo.hh * 60;
-      if (resize) {
-        const target = C.snap(b.end + raw, stepM);
-        st.delta = Math.max(target, b.start + 15) - b.end;
-        el.style.setProperty('--len', b.end + st.delta - b.start);
-        tip.textContent = `${C.fmt.clock(b.start)}–${C.fmt.clock(b.end + st.delta)}`;
-      } else {
-        const target = clamp(C.snap(b.start + raw, stepM), 0, 1440 - stepM);
-        st.delta = target - b.start;
-        st.days = n > 1 ? clamp(Math.round((st.x - p.x0) / geo.colW), -b.dayIndex, n - 1 - b.dayIndex) : 0;
-        el.style.setProperty('--s', b.start + st.delta);
-        el.style.left = `calc(var(--gutter) + (100% - var(--gutter)) * ${x0 + st.days / n})`;
-        tip.textContent = `${C.fmt.clock(b.start + st.delta)}–${C.fmt.clock(b.end + st.delta)}`;
-      }
-    };
-    const handler = {
-      move(x, y) { st.x = x; st.y = y; update(); },
-      end() {
-        el.classList.remove('dragging');
-        tip.remove();
-        if (resize) {
-          if (!st.delta) return;
-          if (b.src === 'e') moveEvent(b.ref, b.ref.start, new Date(b.ref.end.getTime() + st.delta * 60e3));
-          else setTaskDuration(b.ref, b.ref.duration + Math.round(st.delta));
-        } else {
-          if (!st.delta && !st.days) return;
-          const shift = (d) => {
-            const m = new Date(d.getTime() + st.delta * 60e3);
-            return st.days ? C.addDays(m, st.days) : m;
-          };
-          if (b.src === 'e') {
-            const ns = shift(b.ref.start);
-            moveEvent(b.ref, ns, new Date(ns.getTime() + (b.ref.end - b.ref.start)));
-          } else scheduleTask(b.ref, shift(b.ref.due), true);
-        }
-      },
-      cancel() { el.classList.remove('dragging'); tip.remove(); render(); },
-    };
-    st.handler = handler;
-    update();
-    startAutoScroll(st);
-    return handler;
-  }
-
-  /** Long-press on empty grid, drag to choose the length, release to edit. */
-  function dragCreate(p) {
-    const geo = gridGeometry(p.el.closest('.grid-scroll'));
-    const first = geo.at(p.x, p.y);
-    const start = Math.max(0, Math.floor(first.minute / 15) * 15);
-    const n = geo.days.length;
-    const ghost = document.createElement('div');
-    ghost.className = 'ghost';
-    ghost.style.left = `calc(var(--gutter) + (100% - var(--gutter)) * ${first.col / n})`;
-    ghost.style.width = `calc((100% - var(--gutter)) / ${n} - 2px)`;
-    ghost.style.top = `${start / 60 * geo.hh}px`;
-    geo.grid.appendChild(ghost);
-    const st = { geo, x: p.x, y: p.y, end: start + S.settings.defaultEventMinutes };
-    const update = () => {
-      const m = C.snap(geo.at(st.x, st.y).minute, 15);
-      st.end = clamp(m - start >= 15 ? m : start + S.settings.defaultEventMinutes, start + 15, 1440);
-      ghost.style.height = `${(st.end - start) / 60 * geo.hh}px`;
-      ghost.textContent = `${C.fmt.clock(start)}–${C.fmt.clock(st.end)}`;
-    };
-    const handler = {
-      moved: false,
-      move(x, y) { st.x = x; st.y = y; this.moved = true; update(); },
-      end() {
-        ghost.remove();
-        const day = geo.days[first.col];
-        openSheet({ type: 'event', isNew: true, draft: newEventDraft(C.dateOnDay(day, start), C.dateOnDay(day, st.end)) });
-      },
-      cancel() { ghost.remove(); },
-    };
-    st.handler = handler;
-    update();
-    startAutoScroll(st);
-    return handler;
-  }
-
-  /** Long-press a task chip/row and drop it on the grid (timed) or on a date (all day). */
-  function dragChip(p) {
-    const t = findTask(p.el.dataset.task);
-    if (!t) return null;
-    const ghost = document.createElement('div');
-    ghost.className = 'floating';
-    ghost.textContent = t.title;
-    document.body.appendChild(ghost);
-    p.el.style.opacity = '0.4';
-    let hot = null;
-    const st = { x: p.x, y: p.y, target: null };
-    const update = () => {
-      ghost.style.left = st.x + 'px';
-      ghost.style.top = st.y + 'px';
-      const under = document.elementFromPoint(st.x, st.y);
-      let target = null;
-      const day = under && under.closest('[data-drop-day]');
-      const grid = under && under.closest('.grid-scroll');
-      if (day) target = { el: day, day: new Date(+day.dataset.dropDay) };
-      else if (grid) {
-        const g = gridGeometry(grid);
-        const at = g.at(st.x, st.y);
-        const minute = clamp(C.snap(at.minute, 15), 0, 1425);
-        target = { el: grid, day: g.days[at.col], minute };
-        ghost.textContent = `${t.title} → ${C.fmt.clock(minute)}`;
-      }
-      if (!target || target.minute == null) ghost.textContent = t.title + (target ? ` → ${C.fmt.md(target.day)}` : '');
-      if (hot !== (target && target.el)) {
-        if (hot) hot.classList.remove('drop-hot');
-        hot = target && target.minute == null ? target.el : null;
-        if (hot) hot.classList.add('drop-hot');
-      }
-      st.target = target;
-    };
-    const cleanup = () => { ghost.remove(); p.el.style.opacity = ''; if (hot) hot.classList.remove('drop-hot'); };
-    const handler = {
-      move(x, y) { st.x = x; st.y = y; update(); },
-      end() {
-        cleanup();
-        const tg = st.target;
-        if (!tg) return;
-        if (tg.minute != null) scheduleTask(t, C.dateOnDay(tg.day, tg.minute), true);
-        else if (t.hasTime && t.due) scheduleTask(t, C.dateOnDay(tg.day, C.minuteOfDay(t.due, t.due)), true);
-        else scheduleTask(t, C.startOfDay(tg.day), false);
-      },
-      cancel() { cleanup(); },
-    };
-    update();
-    return handler;
-  }
-
   function activate() {
     const p = Gest.pending;
     Gest.pending = null;
     if (!p) return;
-    if (p.kind === 'locked') {
-      const b = S.blocks[p.el.closest('.blk').dataset.blk];
-      toast(b && b.src === 'e' && b.ref.recurring ? '重复日程不能直接拖动：点开后用系统编辑器修改' : '这个日历是只读的');
-      suppressClickUntil = Date.now() + 500;
-      return;
-    }
-    const h = p.kind === 'chip' ? dragChip(p) : p.kind === 'create' ? dragCreate(p) : dragBlock(p);
+    const h = dragItem(p);
     if (h) {
       Gest.active = h;
       suppressClickUntil = Date.now() + 100000;
+    } else {
+      suppressClickUntil = Date.now() + 500;
     }
   }
 
@@ -2611,8 +1600,7 @@ window.__MOCK__ = (function () {
     Gest.swipe = swipeEl ? { x0: x, y0: y, kind: swipeEl.dataset.swipe } : null;
     const el = target.closest('[data-drag]');
     if (!el || el.closest('.sheet')) return;
-    const kind = el.dataset.drag;
-    Gest.pending = { el, kind, x0: x, y0: y, x, y, timer: setTimeout(activate, kind === 'resize' ? 220 : 380) };
+    Gest.pending = { el, kind: el.dataset.drag, x0: x, y0: y, x, y, timer: setTimeout(activate, 380) };
   }
 
   function moveTo(x, y, e) {
@@ -2638,85 +1626,47 @@ window.__MOCK__ = (function () {
       a.end();
       return;
     }
-    const sw = Gest.swipe;
+    const s = Gest.swipe;
     Gest.swipe = null;
-    if (sw && x != null) {
-      const dx = x - sw.x0, dy = y - sw.y0;
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        suppressClickUntil = Date.now() + 400;
-        if (sw.kind === 'month') setDay(C.addMonths(S.day, dx < 0 ? 1 : -1));
-        else setDay(C.addDays(S.day, dx < 0 ? 7 : -7));
+    if (s && x != null) {
+      const dx = x - s.x0, dy = y - s.y0;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        suppressClickUntil = Date.now() + 300;
+        const dir = dx < 0 ? 1 : -1;
+        if (s.kind === 'month') setDay(C.addMonths(S.day, dir));
+        else if (s.kind === 'week') setDay(C.addDays(S.day, 7 * dir));
+        else setDay(C.addDays(S.day, dir));
       }
     }
   }
 
   function cancelGesture() {
     if (Gest.pending) { clearTimeout(Gest.pending.timer); Gest.pending = null; }
-    if (Gest.active) { const a = Gest.active; Gest.active = null; a.cancel(); suppressClickUntil = Date.now() + 400; }
+    if (Gest.active) { const a = Gest.active; Gest.active = null; a.cancel(); suppressClickUntil = Date.now() + 300; }
     Gest.swipe = null;
   }
 
-  // Pinch to zoom the day grid
-  function pinchStart(e) {
-    const scrollEl = e.target.closest && e.target.closest('.grid-scroll');
-    if (!scrollEl || scrollEl.dataset.compact === '1') return;
-    const [a, b] = e.touches;
-    Gest.pinch = {
-      scrollEl, grid: scrollEl.firstElementChild, base: hourHeight(false), hh: hourHeight(false),
-      d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-      cy: (a.clientY + b.clientY) / 2 - scrollEl.getBoundingClientRect().top,
-    };
-  }
-
-  function pinchMove(e) {
-    const p = Gest.pinch;
-    const [a, b] = e.touches;
-    if (!b) return;
-    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const hh = clamp(p.base * d / p.d0, 28, 160);
-    const top = (p.scrollEl.scrollTop + p.cy) * hh / p.hh - p.cy;
-    p.hh = hh;
-    p.grid.style.setProperty('--hh', hh);
-    p.scrollEl.scrollTop = top;
-  }
-
-  function pinchEnd() {
-    const p = Gest.pinch;
-    Gest.pinch = null;
-    S.settings.hourHeight = Math.round(p.hh);
-    render();
-    saveSettings({ hourHeight: S.settings.hourHeight });
-  }
-
+  let lastTouch = 0;
   document.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      cancelGesture();
-      pinchStart(e);
-      return;
-    }
-    if (e.touches.length !== 1 || Gest.active) return;
+    lastTouch = Date.now();
+    if (e.touches.length !== 1) { cancelGesture(); return; }
+    if (Gest.active) return;
     const t = e.touches[0];
     begin(e.target, t.clientX, t.clientY);
   }, { passive: false });
-
   document.addEventListener('touchmove', (e) => {
-    if (Gest.pinch) { e.preventDefault(); pinchMove(e); return; }
     const t = e.touches[0];
     if (t) moveTo(t.clientX, t.clientY, e);
   }, { passive: false });
-
   document.addEventListener('touchend', (e) => {
-    if (Gest.pinch) { if (e.touches.length < 2) pinchEnd(); return; }
+    lastTouch = Date.now();
     const t = e.changedTouches[0];
     finish(t ? t.clientX : null, t ? t.clientY : null, e);
   }, { passive: false });
-
   document.addEventListener('touchcancel', cancelGesture);
 
-  // Mouse fallback for the desktop preview
+  // Mouse fallback for the desktop preview (ignores the mouse events iOS emulates after a touch)
   let mouseDown = false;
-  let lastTouch = 0;
-  ['touchstart', 'touchend'].forEach((t) => document.addEventListener(t, () => { lastTouch = Date.now(); }, { passive: true }));
   document.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || Date.now() - lastTouch < 1000) return;
     mouseDown = true;
@@ -2733,21 +1683,11 @@ window.__MOCK__ = (function () {
 
   function fitViewport() {
     const vv = window.visualViewport;
-    const h = vv ? vv.height : window.innerHeight;
-    document.documentElement.style.setProperty('--vh', h + 'px');
+    document.documentElement.style.setProperty('--vh', (vv ? vv.height : window.innerHeight) + 'px');
     if (vv && vv.offsetTop) window.scrollTo(0, 0);
   }
 
-  function tickNow() {
-    for (const el of $$('.now')) {
-      const scroll = el.closest('.grid-scroll');
-      const days = scroll.dataset.days.split(',').map((x) => new Date(+x));
-      const day = days[+el.dataset.now];
-      if (!C.sameDay(day, new Date())) { render(); return; }
-      el.style.top = `calc(var(--hh) * ${C.minuteOfDay(new Date(), day) / 60} * 1px)`;
-    }
-  }
-
+  let shownDay = +today();
   function start() {
     renderQuickAdd();
     render();
@@ -2755,10 +1695,10 @@ window.__MOCK__ = (function () {
     if (window.visualViewport) window.visualViewport.addEventListener('resize', fitViewport);
     window.addEventListener('resize', fitViewport);
     load(true);
-    setInterval(tickNow, 30e3);
-    // Pick up changes made elsewhere (system Calendar, other devices)
+    // Pick up changes made elsewhere (system Calendar, Reminders, other devices)
     setInterval(() => {
-      if (!document.hidden && !Gest.active && !Gest.pinch && !S.sheet && !S.loading) refresh();
+      if (+today() !== shownDay) { shownDay = +today(); agendaCache.clear(); render(); }
+      if (!document.hidden && !Gest.active && !S.sheet && !S.loading) refresh();
     }, 30e3);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   }

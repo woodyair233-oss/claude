@@ -2,7 +2,6 @@
 // events, at iPhone size, with the clock fixed to Friday 2026-10-16 09:30.
 import test, { before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const URL = new globalThis.URL('../dist/preview.html?today=2026-10-16T09:30:00', import.meta.url).href;
@@ -30,7 +29,7 @@ beforeEach(async () => {
   page.on('pageerror', (e) => page.errors.push(e.message));
   cdp = await ctx.newCDPSession(page);
   await page.goto(URL);
-  await page.waitForSelector('.grid .blk');
+  await page.waitForSelector('.list .row');
 });
 
 afterEach(async () => {
@@ -61,260 +60,222 @@ async function swipe(from, to) {
   await wait(150);
 }
 
-const mock = (fn) => page.evaluate(fn);
-const events = () => mock(() => window.__MOCK__.events());
-const reminders = () => mock(() => window.__MOCK__.reminders());
-const local = (ms) => new Date(ms).toLocaleString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 16);
-
-/** Box of a grid block, scrolled to the middle of the grid. */
-async function blockBox(title) {
-  const el = page.locator('.blk', { hasText: title }).first();
-  await el.evaluate((node) => {
-    const scroll = node.closest('.grid-scroll');
-    scroll.scrollTop += node.getBoundingClientRect().top - scroll.getBoundingClientRect().top - scroll.clientHeight / 3;
-  });
-  return el.boundingBox();
-}
-
-/** Screen point for a time on the day/week grid (scrolls it into view). */
-async function gridPoint(hour, column = 0) {
-  return page.evaluate(([h, col]) => {
-    const scroll = document.querySelector('.grid-scroll');
-    const grid = scroll.firstElementChild;
-    const hh = parseFloat(getComputedStyle(grid).getPropertyValue('--hh'));
-    const gutter = parseFloat(getComputedStyle(grid).getPropertyValue('--gutter'));
-    const n = scroll.dataset.days.split(',').length;
-    scroll.scrollTop = Math.max(0, (h - 2) * hh);
-    const r = grid.getBoundingClientRect();
-    const colW = (r.width - gutter) / n;
-    return { x: r.left + gutter + colW * (col + 0.5), y: r.top + h * hh + 2 };
-  }, [hour, column]);
-}
-
+const events = () => page.evaluate(() => window.__MOCK__.events());
+const reminders = () => page.evaluate(() => window.__MOCK__.reminders());
+const task = async (title) => (await reminders()).find((x) => x.title === title);
+const local = (ms) => (ms == null ? null : new Date(ms).toLocaleString('sv-SE', { timeZone: 'Asia/Tokyo' }).slice(0, 16));
 const center = (b) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+const box = async (locator) => {
+  await locator.first().scrollIntoViewIfNeeded();
+  return locator.first().boundingBox();
+};
+const stripDay = (i) => box(page.locator('.strip-day').nth(i)); // Monday = 0
 
 // ------------------------------------------------------------------ tests
 
-test('day view shows today with tray, grid and now line', async () => {
+test('day view lists everything for the day without clock times', async () => {
   assert.match(await page.textContent('#hdr h1'), /10月16日 周五/);
-  assert.ok(await page.locator('.blk', { hasText: '门诊' }).count());
-  assert.ok(await page.locator('.chip', { hasText: '续开处方' }).count(), 'overdue task in tray');
-  assert.ok(await page.locator('.now').count());
+  const list = await page.textContent('.list');
+  for (const t of ['续开处方', '晨会', '门诊', '文献阅读', '回复会诊意见', '交病历', '查看化验结果']) assert.match(list, new RegExp(t));
+  assert.doesNotMatch(list, /\d{1,2}:\d{2}/, 'no clock times');
+  assert.match(await page.textContent('.inbox'), /待办区\s*4/);
 });
 
-test('long-press drag moves an event by one hour', async () => {
-  const b = await blockBox('门诊');
-  await longPressDrag({ x: b.x + 40, y: b.y + 15 }, { x: b.x + 40, y: b.y + 15 + 56 });
-  const ev = (await events()).find((e) => e.title === '门诊');
-  assert.equal(local(ev.start), '2026-10-16 10:00');
-  assert.equal(local(ev.end), '2026-10-16 13:00');
-  assert.ok(await page.locator('.blk', { hasText: '10:00–13:00' }).count());
+test('an overnight event is listed only on the day it starts', async () => {
+  await page.click('[data-act=next]');
+  assert.match(await page.textContent('.list'), /夜间值班/);
+  await page.click('[data-act=next]');
+  assert.doesNotMatch(await page.textContent('.list'), /夜间值班/);
 });
 
-test('dragging the bottom edge resizes an event', async () => {
-  const b = await blockBox('文献阅读');
-  const edge = { x: b.x + b.width / 2, y: b.y + b.height - 5 };
-  await longPressDrag(edge, { x: edge.x, y: edge.y + 28 });
-  const ev = (await events()).find((e) => e.title === '文献阅读');
-  assert.equal(local(ev.end), '2026-10-16 17:00');
+test('a multi-day all-day event shows on each day', async () => {
+  for (let i = 0; i < 3; i++) await page.click('[data-act=next]');
+  assert.match(await page.textContent('.list'), /学术会议/);
+  await page.click('[data-act=next]');
+  assert.match(await page.textContent('.list'), /学术会议/);
 });
 
-test('quick taps scroll instead of dragging', async () => {
-  const b = await blockBox('门诊');
-  await swipe({ x: b.x + 40, y: b.y + 80 }, { x: b.x + 40, y: b.y - 60 });
-  const ev = (await events()).find((e) => e.title === '门诊');
-  assert.equal(local(ev.start), '2026-10-16 09:00');
-});
+test('quick add without a date goes to the to-do area, with a date onto that day', async () => {
+  await page.fill('#qa-input', '写随访总结 #工作 !!');
+  assert.match(await page.textContent('#qa-preview'), /待办区.*工作待办.*中优先/);
+  await page.press('#qa-input', 'Enter');
+  await page.waitForSelector('.toast');
+  let r = await task('写随访总结');
+  assert.equal(r.due, null);
+  assert.equal(r.listId, 'list-work');
+  assert.equal(r.priority, 5);
+  assert.ok(await page.locator('.inbox .chip', { hasText: '写随访总结' }).count());
 
-test('long-press on empty time creates an event there', async () => {
-  const p = await gridPoint(13);
-  await longPressDrag(p, { x: p.x, y: p.y + 56 });
-  await page.waitForSelector('.sheet input[name=title]');
-  assert.equal(await page.inputValue('[name=st]'), '13:00');
-  assert.equal(await page.inputValue('[name=et]'), '14:00');
-  await page.fill('[name=title]', '病例讨论');
-  await page.click('[data-act=event-save]');
+  await page.fill('#qa-input', '明天 交报告');
+  assert.match(await page.textContent('#qa-preview'), /明天（10月17日）/);
+  await page.press('#qa-input', 'Enter');
   await wait(100);
-  const ev = (await events()).find((e) => e.title === '病例讨论');
-  assert.ok(ev);
-  assert.equal(local(ev.start), '2026-10-16 13:00');
-  assert.equal(ev.calendarId, 'cal-work');
-});
-
-test('double-tap on empty time opens a one-hour event', async () => {
-  const p = await gridPoint(14);
-  await page.mouse.click(p.x, p.y + 10);
-  await page.mouse.click(p.x, p.y + 10);
-  await page.waitForSelector('.sheet input[name=title]');
-  assert.equal(await page.inputValue('[name=st]'), '14:00');
-  assert.equal(await page.inputValue('[name=et]'), '15:00');
-});
-
-test('tap an event to edit it', async () => {
-  await page.locator('.blk', { hasText: '晨会' }).click();
-  await page.waitForSelector('.sheet');
-  assert.equal(await page.inputValue('[name=title]'), '晨会');
-  await page.fill('[name=title]', '晨会（改）');
-  await page.click('[data-act=event-save]');
-  await wait(100);
-  assert.ok((await events()).some((e) => e.title === '晨会（改）'));
-});
-
-test('drag a task from the inbox onto the timeline', async () => {
-  await page.click('[data-act=inbox]');
-  const chip = await page.locator('.inbox .chip', { hasText: '买牛奶' }).boundingBox();
-  const target = await gridPoint(14);
-  // gridPoint scrolled the grid; the chip stays in place in the tray
-  await longPressDrag(center(chip), target, { steps: 15 });
-  const r = (await reminders()).find((x) => x.title === '买牛奶');
-  assert.equal(local(r.due), '2026-10-16 14:00');
-  assert.equal(r.hasTime, true);
-  assert.ok(await page.locator('.blk.task', { hasText: '买牛奶' }).count());
-});
-
-test('drag a task onto another day in the week strip', async () => {
-  const chip = await page.locator('.tray .chip', { hasText: '回复会诊意见' }).boundingBox();
-  const sat = await page.locator('.strip-day').nth(5).boundingBox();
-  await longPressDrag(center(chip), center(sat));
-  const r = (await reminders()).find((x) => x.title === '回复会诊意见');
+  r = await task('交报告');
   assert.equal(local(r.due), '2026-10-17 00:00');
   assert.equal(r.hasTime, false);
 });
 
-test('tick a task as done', async () => {
-  await page.locator('.chip', { hasText: '续开处方' }).locator('.check').click();
-  await wait(100);
-  assert.equal((await reminders()).find((x) => x.title === '续开处方').completed, true);
-});
-
-test('quick add an event, then undo', async () => {
-  await page.fill('#qa-input', '明天下午3点 开会 1小时');
-  assert.match(await page.textContent('#qa-preview'), /日程.*明天.*15:00–16:00/);
+test('undo removes a quick-added task', async () => {
+  await page.fill('#qa-input', '买药');
   await page.press('#qa-input', 'Enter');
-  await page.waitForSelector('.toast');
-  const ev = (await events()).find((e) => e.title === '开会');
-  assert.equal(local(ev.start), '2026-10-17 15:00');
-  assert.equal(local(ev.end), '2026-10-17 16:00');
   await page.click('[data-act=toast-action]');
   await wait(100);
-  assert.ok(!(await events()).some((e) => e.title === '开会'));
+  assert.equal(await task('买药'), undefined);
 });
 
-test('quick add a task with priority and the kind toggle', async () => {
-  await page.fill('#qa-input', '3点 写总结');
-  assert.match(await page.textContent('.pv.kind'), /日程/);
-  await page.click('.pv.kind');
-  assert.match(await page.textContent('.pv.kind'), /待办/);
-  await page.press('#qa-input', 'Enter');
-  await wait(100);
-  const r = (await reminders()).find((x) => x.title === '写总结');
-  assert.equal(local(r.due), '2026-10-16 15:00');
-  assert.equal(r.hasTime, true);
-  await page.fill('#qa-input', '待办 买药 !!');
-  await page.press('#qa-input', 'Enter');
-  await wait(100);
-  assert.equal((await reminders()).find((x) => x.title === '买药').priority, 5);
+test('drag a task from the to-do area onto a day in the date strip', async () => {
+  const chip = await box(page.locator('.inbox .chip', { hasText: '买牛奶' }));
+  await longPressDrag(center(chip), center(await stripDay(5)), { steps: 15 });
+  const r = await task('买牛奶');
+  assert.equal(local(r.due), '2026-10-17 00:00');
+  assert.equal(await page.locator('.inbox .chip', { hasText: '买牛奶' }).count(), 0);
 });
 
-test('shift brush paints and removes a night shift', async () => {
-  await page.click('[data-act=mode][data-v=month]');
-  await page.click('[data-act=brush-toggle]');
-  await page.locator('[data-act=brush]', { hasText: '夜班' }).click();
-  const cell = page.locator('.cell:not(.out)', { has: page.locator('.n', { hasText: /^22$/ }) });
-  await cell.click();
-  await wait(100);
-  let night = (await events()).filter((e) => e.title === '夜班' && local(e.start).startsWith('2026-10-22'));
-  assert.equal(night.length, 1);
-  assert.equal(local(night[0].end), '2026-10-23 08:00');
-  assert.ok(await cell.locator('.badge').count());
-  await cell.click();
-  await wait(100);
-  night = (await events()).filter((e) => e.title === '夜班' && local(e.start).startsWith('2026-10-22'));
-  assert.equal(night.length, 0);
+test('drag a task from the to-do area onto the day list', async () => {
+  const chip = await box(page.locator('.inbox .chip', { hasText: '更新简历' }));
+  const list = await box(page.locator('.list'));
+  await longPressDrag(center(chip), { x: list.x + 200, y: list.y + 120 }, { steps: 15 });
+  assert.equal(local((await task('更新简历')).due), '2026-10-16 00:00');
+  assert.ok(await page.locator('.list .row', { hasText: '更新简历' }).count());
 });
 
-test('short rest between shifts is flagged in the month view', async () => {
-  await page.click('[data-act=mode][data-v=month]');
-  const cell = page.locator('.cell:not(.out)', { has: page.locator('.n', { hasText: /^20$/ }) });
-  assert.ok(await cell.locator('.warn').count());
-  assert.match(await page.textContent('.mo-sum'), /夜班 1/);
+test('drag a scheduled task back to the to-do area', async () => {
+  const row = await box(page.locator('.list .row', { hasText: '交病历' }));
+  const inbox = await box(page.locator('.inbox'));
+  await longPressDrag({ x: row.x + 120, y: row.y + 20 }, { x: inbox.x + 200, y: inbox.y + 20 });
+  assert.equal((await task('交病历')).due, null);
+  assert.ok(await page.locator('.inbox .chip', { hasText: '交病历' }).count());
+});
+
+test('drag an event to another day keeps its time of day', async () => {
+  const row = await box(page.locator('.list .row', { hasText: '文献阅读' }));
+  await longPressDrag({ x: row.x + 120, y: row.y + 20 }, center(await stripDay(6)));
+  const ev = (await events()).find((e) => e.title === '文献阅读');
+  assert.equal(local(ev.start), '2026-10-18 15:00');
+  assert.equal(local(ev.end), '2026-10-18 16:30');
+});
+
+test('events cannot go into the to-do area', async () => {
+  const row = await box(page.locator('.list .row', { hasText: '晨会' }));
+  const inbox = await box(page.locator('.inbox'));
+  await longPressDrag({ x: row.x + 120, y: row.y + 20 }, { x: inbox.x + 200, y: inbox.y + 20 });
+  assert.match(await page.textContent('.toast'), /日程需要日期/);
+  assert.equal(local((await events()).find((e) => e.title === '晨会').start), '2026-10-16 08:00');
 });
 
 test('recurring events are not dragged', async () => {
-  await page.click('[data-act=prev]'); // Thursday
-  for (let i = 0; i < 3; i++) await page.click('[data-act=prev]'); // Monday
-  const b = await blockBox('科室例会');
-  await longPressDrag({ x: b.x + 30, y: b.y + 10 }, { x: b.x + 30, y: b.y + 70 });
-  await page.waitForSelector('.toast');
-  assert.match(await page.textContent('.toast'), /重复日程/);
-  const ev = (await events()).filter((e) => e.title === '科室例会');
-  assert.ok(ev.every((e) => local(e.start).endsWith('07:30')));
-});
-
-test('week view drags an event to the next day', async () => {
   await page.click('[data-act=mode][data-v=week]');
-  const b = await blockBox('晨会');
-  const colW = (390 - 30) / 7;
-  await longPressDrag({ x: b.x + 10, y: b.y + 8 }, { x: b.x + 10 + colW, y: b.y + 8 });
-  const ev = (await events()).find((e) => e.title === '晨会');
-  assert.equal(local(ev.start), '2026-10-17 08:00');
+  await page.click('[data-act=prev]');
+  await page.click('[data-act=next]');
+  const row = await box(page.locator('.wday .row', { hasText: '科室例会' }));
+  await longPressDrag({ x: row.x + 100, y: row.y + 10 }, { x: row.x + 100, y: row.y + 200 });
+  assert.match(await page.textContent('.toast'), /重复日程/);
+  assert.ok((await events()).filter((e) => e.title === '科室例会').every((e) => /07:30$/.test(local(e.start))));
 });
 
-test('swipe the week strip to the next week', async () => {
-  const s = await page.locator('.strip').boundingBox();
+test('week view: seven days stacked, drag a task to another day', async () => {
+  await page.click('[data-act=mode][data-v=week]');
+  assert.equal(await page.locator('.wday').count(), 7);
+  const row = await box(page.locator('.wday .row', { hasText: '回复会诊意见' }));
+  const sat = await box(page.locator('.wday').nth(5).locator('.wday-head'));
+  await longPressDrag({ x: row.x + 120, y: row.y + 10 }, center(sat));
+  assert.equal(local((await task('回复会诊意见')).due), '2026-10-17 00:00');
+  assert.match(await page.locator('.wday').nth(5).textContent(), /回复会诊意见/);
+});
+
+test('month view: counts per day and dropping onto a cell', async () => {
+  await page.click('[data-act=mode][data-v=month]');
+  const cell = page.locator('.cell:not(.out)', { has: page.locator('.n', { hasText: /^22$/ }) });
+  const chip = await box(page.locator('.inbox .chip', { hasText: '预约体检' }));
+  await longPressDrag(center(chip), center(await box(cell)), { steps: 15 });
+  assert.equal(local((await task('预约体检')).due), '2026-10-22 00:00');
+  assert.match(await cell.locator('.cnt').textContent(), /1/);
+  const today = page.locator('.cell.today');
+  assert.match(await today.locator('.cnt').textContent(), /5/);
+});
+
+test('swipe the day list to the next day and the strip to the next week', async () => {
+  const list = await box(page.locator('.list'));
+  await swipe({ x: list.x + 320, y: list.y + 200 }, { x: list.x + 40, y: list.y + 205 });
+  assert.match(await page.textContent('#hdr h1'), /10月17日/);
+  const s = await box(page.locator('.strip'));
   await swipe({ x: s.x + 300, y: s.y + 30 }, { x: s.x + 40, y: s.y + 35 });
-  assert.match(await page.textContent('#hdr h1'), /10月23日/);
+  assert.match(await page.textContent('#hdr h1'), /10月24日/);
 });
 
-test('pinch zooms the day timeline', async () => {
-  const p = await gridPoint(12);
-  await touch('touchStart', [{ x: p.x, y: p.y - 40, id: 1 }, { x: p.x, y: p.y + 40, id: 2 }]);
-  for (let i = 1; i <= 8; i++) await touch('touchMove', [{ x: p.x, y: p.y - 40 - i * 8, id: 1 }, { x: p.x, y: p.y + 40 + i * 8, id: 2 }]);
-  await touch('touchEnd', []);
-  await wait(150);
-  const hh = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.grid')).getPropertyValue('--hh')));
-  assert.ok(hh > 80, `hour height ${hh}`);
-});
-
-test('list style: postpone a task from its menu', async () => {
-  await page.click('[data-act=style]');
-  await page.locator('.row', { hasText: '交病历' }).locator('[data-act=task-menu]').click();
-  await page.click('[data-act=menu-postpone]');
+test('tick a task and move overdue tasks to today', async () => {
+  await page.locator('.list .row', { hasText: '交病历' }).locator('.check').click();
   await wait(100);
-  assert.equal(local((await reminders()).find((x) => x.title === '交病历').due), '2026-10-17 17:00');
-  assert.match(await page.textContent('.list'), /空闲/);
+  assert.equal((await task('交病历')).completed, true);
+  await page.click('[data-act=overdue-today]');
+  await wait(150);
+  assert.equal(local((await task('续开处方')).due), '2026-10-16 00:00');
+  assert.equal(await page.locator('.sec.red').count(), 0);
 });
 
-test('delete an event after confirming', async () => {
-  await page.locator('.blk', { hasText: '电话会诊' }).click();
+test('task menu: tomorrow, then back to the to-do area', async () => {
+  await page.locator('.list .row', { hasText: '回复会诊意见' }).locator('[data-act=task-menu]').click();
+  await page.click('[data-act=menu-day][data-v="1"]');
+  await wait(100);
+  assert.equal(local((await task('回复会诊意见')).due), '2026-10-17 00:00');
+  await page.click('[data-act=next]');
+  await page.locator('.list .row', { hasText: '回复会诊意见' }).locator('[data-act=task-menu]').click();
+  await page.click('[data-act=menu-inbox]');
+  await wait(100);
+  assert.equal((await task('回复会诊意见')).due, null);
+});
+
+test('task editor: schedule an inbox task with a quick day', async () => {
+  await page.locator('.inbox .chip', { hasText: '准备病例讨论' }).locator('.t').click();
+  await page.click('[data-act=where][data-v=day]');
+  await page.click('[data-act=qday][data-v=mon]');
+  await page.click('[data-act=task-save]');
+  await wait(100);
+  assert.equal(local((await task('准备病例讨论 PPT')).due), '2026-10-19 00:00');
+});
+
+test('new task from + goes to the to-do area by default', async () => {
+  await page.click('[data-act=new-task]');
+  await page.fill('.sheet [name=title]', '复印资料');
+  await page.click('[data-act=task-save]');
+  await wait(100);
+  assert.equal((await task('复印资料')).due, null);
+});
+
+test('event editor moves the date and deletes after confirming', async () => {
+  await page.locator('.list .row', { hasText: '门诊' }).click();
+  assert.equal(await page.inputValue('.sheet [name=day]'), '2026-10-16');
+  await page.click('[data-act=qday][data-v="1"]');
+  await page.click('[data-act=event-save]');
+  await wait(100);
+  const ev = (await events()).find((e) => e.title === '门诊');
+  assert.equal(local(ev.start), '2026-10-17 09:00');
+  await page.click('[data-act=next]');
+  await page.locator('.list .row', { hasText: '门诊' }).click();
   await page.click('[data-act=event-delete]');
   await page.click('[data-act=confirm-yes]');
   await wait(100);
-  assert.ok(!(await events()).some((e) => e.title === '电话会诊'));
+  assert.ok(!(await events()).some((e) => e.title === '门诊'));
 });
 
-test('settings hide a calendar and change capacity', async () => {
+test('read-only events cannot be edited', async () => {
+  for (let i = 0; i < 5; i++) await page.click('[data-act=next]');
+  await page.locator('.list .row', { hasText: '纪念日' }).click();
+  assert.ok(await page.locator('[data-act=event-save][disabled]').count());
+  assert.match(await page.textContent('.sheet'), /只读/);
+});
+
+test('settings: capacity, hidden calendar, collapse the to-do area', async () => {
   await page.click('[data-act=settings]');
   await page.locator('.f', { hasText: '个人' }).locator('.switch').click();
-  await page.locator('[data-act=step][data-name=capacityHours][data-v="1"]').click();
+  await page.locator('[data-act=cap][data-v="1"]').click();
   await page.click('[data-act=settings-save]');
   await wait(150);
-  const settings = await mock(() => window.__MOCK__.handle('load', {}).then((d) => d.settings));
-  assert.equal(settings.capacityHours, 9);
+  const settings = await page.evaluate(() => window.__MOCK__.handle('load', {}).then((d) => d.settings));
+  assert.equal(settings.capacity, 7);
   assert.deepEqual(settings.hidden, ['cal-home']);
-  assert.equal(await page.locator('.blk', { hasText: '文献阅读' }).count(), 0);
-});
-
-test('task editor schedules a time and duration', async () => {
-  await page.locator('.chip', { hasText: '回复会诊意见' }).locator('.t').click();
-  await page.waitForSelector('.sheet [name=hasTime]', { state: 'attached' });
-  await page.locator('.f', { hasText: '时间' }).locator('.switch').click();
-  await page.fill('[name=dt]', '16:15');
-  await page.selectOption('[name=duration]', '60');
-  await page.click('[data-act=task-save]');
+  assert.equal(await page.locator('.list .row', { hasText: '文献阅读' }).count(), 0);
+  await page.click('.inbox-head');
   await wait(100);
-  const r = (await reminders()).find((x) => x.title === '回复会诊意见');
-  assert.equal(local(r.due), '2026-10-16 16:15');
-  const b = await blockBox('回复会诊意见');
-  assert.ok(b.height > 50, 'one hour tall');
+  assert.equal(await page.locator('.inbox-body').count(), 0);
 });

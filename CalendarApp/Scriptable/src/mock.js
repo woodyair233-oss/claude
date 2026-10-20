@@ -5,14 +5,16 @@ window.__MOCK__ = (function () {
   const C = window.GlanceCore;
   const params = new URLSearchParams(location.search);
   const today = params.get('today') ? C.startOfDay(new Date(params.get('today'))) : C.startOfDay(new Date());
-  const at = (dayOffset, h, m) => C.dateOnDay(C.addDays(today, dayOffset), h * 60 + (m || 0)).getTime();
+  const at = (dayOffset, h, m) => {
+    const d = C.addDays(today, dayOffset);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, m || 0).getTime();
+  };
   const dayAt = (dayOffset) => C.addDays(today, dayOffset).getTime();
   const endOfDay = (dayOffset) => C.addDays(today, dayOffset + 1).getTime() - 1000;
 
   const calendars = [
     { id: 'cal-work', title: '工作', color: '#2F6FED', editable: true },
     { id: 'cal-home', title: '个人', color: '#34C759', editable: true },
-    { id: 'cal-shift', title: '排班', color: '#6366F1', editable: true },
     { id: 'cal-holiday', title: '节假日', color: '#E5383B', editable: false },
   ];
   const lists = [
@@ -27,32 +29,33 @@ window.__MOCK__ = (function () {
   let events = [
     ev('晨会', at(0, 8), at(0, 8, 30), 'cal-work', { location: '3楼会议室' }),
     ev('门诊', at(0, 9), at(0, 12), 'cal-work', { location: '门诊二区' }),
-    ev('电话会诊', at(0, 10, 30), at(0, 11), 'cal-work'),
     ev('文献阅读', at(0, 15), at(0, 16, 30), 'cal-home'),
+    ev('夜间值班', at(1, 20), at(2, 8), 'cal-work'),
     ev('健身', at(1, 19), at(1, 20), 'cal-home'),
-    ev('学术会议', dayAt(2), endOfDay(2), 'cal-work', { allDay: true }),
-    ev('白班', at(-1, 8), at(-1, 17), 'cal-shift'),
-    ev('夜班', at(3, 20), at(4, 8), 'cal-shift'),
-    ev('白班', at(4, 16), at(4, 23), 'cal-shift'),
+    ev('学术会议', dayAt(3), endOfDay(4), 'cal-work', { allDay: true }),
     ev('纪念日', dayAt(5), endOfDay(5), 'cal-holiday', { allDay: true }),
   ];
   // A weekly series: occurrences share one identifier
   for (let w = -6; w <= 6; w++) {
     const monday = C.addDays(C.startOfWeek(today, 1), w * 7);
-    const s = C.dateOnDay(monday, 7 * 60 + 30).getTime();
+    const s = monday.getTime() + 7.5 * 3600e3;
     events.push({ id: 'evt-weekly', title: '科室例会', start: s, end: s + 3600e3, allDay: false, calendarId: 'cal-work', location: '', notes: '', series: true });
   }
 
+  const task = (title, due, extra) => Object.assign({ id: nid('rem'), title, notes: '', due, hasTime: false, completed: false,
+    completionDate: null, priority: 0, listId: 'list-main' }, extra || {});
   let reminders = [
-    { id: nid('rem'), title: '回复会诊意见', notes: '', due: dayAt(0), hasTime: false, completed: false, completionDate: null, priority: 5, listId: 'list-work' },
-    { id: nid('rem'), title: '交病历', notes: '', due: at(0, 17), hasTime: true, completed: false, completionDate: null, priority: 0, listId: 'list-work' },
-    { id: nid('rem'), title: '续开处方', notes: '', due: dayAt(-1), hasTime: false, completed: false, completionDate: null, priority: 0, listId: 'list-main' },
-    { id: nid('rem'), title: '准备病例讨论 PPT', notes: '', due: null, hasTime: false, completed: false, completionDate: null, priority: 0, listId: 'list-work' },
-    { id: nid('rem'), title: '买牛奶', notes: '', due: null, hasTime: false, completed: false, completionDate: null, priority: 0, listId: 'list-main' },
-    { id: nid('rem'), title: '预约体检', notes: '', due: null, hasTime: false, completed: false, completionDate: null, priority: 9, listId: 'list-main' },
-    { id: nid('rem'), title: '查看化验结果', notes: '', due: dayAt(0), hasTime: false, completed: true, completionDate: at(0, 8, 40), priority: 0, listId: 'list-work' },
+    task('回复会诊意见', dayAt(0), { priority: 5, listId: 'list-work' }),
+    task('交病历', dayAt(0), { listId: 'list-work' }),
+    task('续开处方', dayAt(-1)),
+    task('整理随访名单', dayAt(2), { listId: 'list-work' }),
+    task('准备病例讨论 PPT', null, { listId: 'list-work' }),
+    task('买牛奶', null),
+    task('预约体检', null, { priority: 9 }),
+    task('更新简历', null),
+    task('查看化验结果', dayAt(0), { completed: true, completionDate: at(0, 8, 40), listId: 'list-work' }),
   ];
-  let settings = { taskDurations: {} };
+  let settings = {};
   let lastRange = null;
   const log = [];
 
@@ -62,38 +65,27 @@ window.__MOCK__ = (function () {
 
   function data() {
     const r = lastRange || { start: dayAt(-60), end: dayAt(60) };
+    const hidden = settings.hidden || [];
     return {
       calendars, lists, settings, version: 'preview',
-      defaults: { eventCalendarId: 'cal-work', reminderListId: 'list-main' },
-      events: events.filter((e) => !(settings.hidden || []).includes(e.calendarId) && e.start < r.end && e.end >= r.start)
+      defaults: { reminderListId: 'list-main' },
+      events: events.filter((e) => !hidden.includes(e.calendarId) && e.start < r.end && e.end >= r.start)
         .map((e) => ({ uid: uid(e), id: e.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay, calendarId: e.calendarId, location: e.location, notes: e.notes })),
-      reminders: reminders.filter((x) => !(settings.hidden || []).includes(x.listId) &&
+      reminders: reminders.filter((x) => !hidden.includes(x.listId) &&
         (!x.completed || (x.completionDate >= r.start && x.completionDate < r.end))).map((x) => Object.assign({}, x)),
     };
   }
 
-  function createEvent(p) {
-    const e = ev(p.title || '新日程', p.start, p.end, p.calendarId || 'cal-work', { allDay: !!p.allDay, location: p.location || '', notes: p.notes || '' });
-    if (e.allDay) { e.start = C.startOfDay(e.start).getTime(); e.end = C.addDays(C.startOfDay(Math.max(p.end, p.start)), 1).getTime() - 1000; }
-    events.push(e);
-    return e;
-  }
-
   const handlers = {
     load(p) { lastRange = p; return data(); },
-    saveSettings(p) {
-      settings = Object.assign({}, p.settings, { taskDurations: Object.assign({}, p.settings.taskDurations, settings.taskDurations) });
-      return { ok: true, data: data() };
-    },
-    createEvent(p) { const e = createEvent(p); return { ok: true, uid: uid(e), data: data() }; },
+    saveSettings(p) { settings = Object.assign({}, p.settings); return { ok: true, data: data() }; },
     updateEvent(p) {
       const e = findEvent(p.uid);
       if (!e) return { error: '找不到这个日程' };
       if (e.series) return { recurring: true };
       for (const k of ['title', 'location', 'notes', 'calendarId']) if (p[k] != null) e[k] = p[k];
-      if (p.allDay != null) e.allDay = p.allDay;
       if (p.start != null) e.start = p.start;
-      if (p.end != null) e.end = e.allDay ? C.addDays(C.startOfDay(Math.max(p.end, e.start)), 1).getTime() - 1000 : p.end;
+      if (p.end != null) e.end = Math.max(p.end, e.start);
       return { ok: true, data: data() };
     },
     deleteEvent(p) {
@@ -104,10 +96,9 @@ window.__MOCK__ = (function () {
     },
     editNative() { return { ok: true, data: data() }; },
     createReminder(p) {
-      const r = { id: nid('rem'), title: p.title || '新待办', notes: p.notes || '', due: p.due != null ? p.due : null,
-        hasTime: !!(p.due != null && p.hasTime), completed: false, completionDate: null, priority: p.priority || 0, listId: p.listId || 'list-main' };
+      const r = task(p.title || '新待办', p.due != null ? p.due : null,
+        { hasTime: !!(p.due != null && p.hasTime), priority: p.priority || 0, listId: p.listId || 'list-main', notes: p.notes || '' });
       reminders.push(r);
-      if (p.duration) settings.taskDurations[r.id] = p.duration;
       return { ok: true, id: r.id, data: data() };
     },
     updateReminder(p) {
@@ -116,17 +107,9 @@ window.__MOCK__ = (function () {
       for (const k of ['title', 'notes', 'priority', 'listId']) if (p[k] != null) r[k] = p[k];
       if ('due' in p) { r.due = p.due; r.hasTime = !!(p.due != null && p.hasTime); }
       if (p.completed != null) { r.completed = p.completed; r.completionDate = p.completed ? Date.now() : null; }
-      if (p.duration) settings.taskDurations[p.id] = p.duration;
       return { ok: true, data: data() };
     },
     deleteReminder(p) { reminders = reminders.filter((x) => x.id !== p.id); return { ok: true, data: data() }; },
-    batch(p) {
-      for (const op of p.ops || []) {
-        if (op.type === 'deleteEvent') handlers.deleteEvent(op);
-        else if (op.type === 'createEvent') createEvent(op);
-      }
-      return { ok: true, data: data() };
-    },
     openSettingsApp() { return { ok: true }; },
     selfUpdate() { return { ok: true, message: '预览版不需要更新' }; },
   };

@@ -29,7 +29,7 @@ ${css}
 </style>
 </head>
 <body>
-<div id="app"><header id="hdr"></header><main id="main"></main><footer id="qa"></footer></div>
+<div id="app"><header id="hdr"></header><main id="main"></main><section id="inbox"></section><footer id="qa"></footer></div>
 <div id="sheet-root"></div>
 <script>
 ${core}

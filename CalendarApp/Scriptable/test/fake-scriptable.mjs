@@ -154,10 +154,9 @@ export function runScript(path, globals) {
 export function seed(store, env, today) {
   const { Color, Calendar } = env;
   const work = new Calendar({ identifier: 'C-work', title: '工作', type: 'event', color: new Color('2F6FED') });
-  const shift = new Calendar({ identifier: 'C-shift', title: '排班', type: 'event', color: new Color('6366F1') });
   const holiday = new Calendar({ identifier: 'C-hol', title: '节假日', type: 'event', color: new Color('E5383B'), isSubscribed: true, allowsContentModifications: false });
   const inbox = new Calendar({ identifier: 'L-main', title: '提醒事项', type: 'reminder', color: new Color('F08C00') });
-  store.calendars.push(work, shift, holiday, inbox);
+  store.calendars.push(work, holiday, inbox);
   const at = (d, h, m = 0) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + d, h, m);
   const add = (cls, init) => { const o = Object.assign(new cls(), init); store[cls === env.globals.Reminder ? 'reminders' : 'events'].push(o); return o; };
   const E = env.globals.CalendarEvent;
@@ -170,7 +169,7 @@ export function seed(store, env, today) {
   add(R, { identifier: 'R-1', title: '回复会诊意见', dueDate: at(0, 0), calendar: inbox });
   add(R, { identifier: 'R-2', title: '交病历', dueDate: at(1, 17), dueDateIncludesTime: true, calendar: inbox });
   add(R, { identifier: 'R-3', title: '买牛奶', calendar: inbox });
-  return { at, work, shift, inbox };
+  return { at, work, inbox };
 }
 
 export { DAY };

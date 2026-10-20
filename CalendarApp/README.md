@@ -1,6 +1,6 @@
 # 一览（OneGlance）—— iOS 日历与任务排程
 
-> **不想签名？** 另有不需要签名、不用 Mac 的 [Scriptable 版](Scriptable/README.md)，功能大致相同。
+> **不想签名？** 另有不需要签名、不用 Mac 的 [Scriptable 版](Scriptable/README.md)：以“天”为单位安排事项，下方有待办区，可拖到任意一天。
 
 直接读写 iPhone 系统的**日历**和**提醒事项**，所以和系统日历、iCloud、Google、Exchange 等所有账户**实时同步**，不会另存一份数据。
 重点在于：一个画面看完一天的所有安排、少跳页、拖一下就能排程。

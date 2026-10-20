@@ -35,14 +35,19 @@ async function openApp(setup) {
     await touch('touchEnd', []);
     await page.waitForTimeout(400);
   };
-  const block = async (title) => {
-    const el = page.locator('.blk', { hasText: title }).first();
-    await el.evaluate((node) => {
-      const s = node.closest('.grid-scroll');
-      s.scrollTop += node.getBoundingClientRect().top - s.getBoundingClientRect().top - s.clientHeight / 3;
-    });
+  const row = async (title) => {
+    const el = page.locator('.row', { hasText: title }).first();
+    await el.scrollIntoViewIfNeeded();
     return el.boundingBox();
   };
+  /** A date-strip day next to today that is in the same week (tomorrow, or yesterday on the last day). */
+  const neighbour = async () => page.evaluate(() => {
+    const days = [...document.querySelectorAll('.strip-day')];
+    const i = days.findIndex((d) => d.classList.contains('sel'));
+    const j = i < days.length - 1 ? i + 1 : i - 1;
+    const r = days[j].getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, delta: j - i };
+  });
   const close = async () => {
     env.closeWebView();
     await run;
@@ -50,55 +55,57 @@ async function openApp(setup) {
     assert.deepEqual(errors, [], 'page errors');
     assert.deepEqual(store.errors || [], [], 'script errors');
   };
-  return { page, store, env, seeded, drag, block, close, run };
+  return { page, store, env, seeded, drag, row, neighbour, close, run };
 }
 
 test('full-screen app reads and writes EventKit through the bridge', async () => {
   const app = await openApp();
   const { page, store } = app;
-  await page.waitForSelector('.blk');
-  assert.ok(await page.locator('.blk', { hasText: '门诊' }).count());
+  await page.waitForSelector('.list .row');
+  assert.doesNotMatch(await page.textContent('.list'), /\d{1,2}:\d{2}/, 'no clock times');
+  assert.match(await page.textContent('.inbox'), /买牛奶/);
 
-  // Drag 门诊 one hour later
-  const b = await app.block('门诊');
-  await app.drag({ x: b.x + 40, y: b.y + 15 }, { x: b.x + 40, y: b.y + 71 });
+  // Drag 门诊 to the neighbouring day: same time of day, different date
+  const r = await app.row('门诊');
+  const target = await app.neighbour();
+  await app.drag({ x: r.x + 120, y: r.y + 20 }, target);
   const clinic = store.events.find((e) => e.identifier === 'E-clinic');
-  assert.equal(clinic.startDate.getHours(), 10);
-  assert.equal(clinic.endDate.getHours(), 13);
+  assert.equal(clinic.startDate.getDate(), new Date(today().getTime() + target.delta * 864e5).getDate());
+  assert.equal(clinic.startDate.getHours(), 9);
+  assert.equal(clinic.endDate.getHours(), 12);
+
+  // Drag 买牛奶 from the to-do area onto today's list
+  const chip = await page.locator('.inbox .chip', { hasText: '买牛奶' }).boundingBox();
+  const list = await page.locator('.list').boundingBox();
+  await app.drag({ x: chip.x + chip.width / 2, y: chip.y + chip.height / 2 }, { x: list.x + 200, y: list.y + 60 });
+  const milk = store.reminders.find((x) => x.identifier === 'R-3');
+  assert.equal(milk.dueDate.getTime(), today().getTime());
+  assert.equal(milk.dueDateIncludesTime, false);
 
   // Tick a task
-  await page.locator('.chip', { hasText: '回复会诊意见' }).locator('.check').click();
+  await page.locator('.row', { hasText: '回复会诊意见' }).locator('.check').click();
   await page.waitForTimeout(200);
-  assert.equal(store.reminders.find((r) => r.identifier === 'R-1').isCompleted, true);
+  assert.equal(store.reminders.find((x) => x.identifier === 'R-1').isCompleted, true);
 
-  // Quick add an event and a task
-  await page.fill('#qa-input', '明天下午3点 开会 1小时');
+  // Quick add: with a date onto that day, without a date into the to-do area
+  await page.fill('#qa-input', '明天 开会');
   await page.press('#qa-input', 'Enter');
   await page.waitForTimeout(300);
-  const meeting = store.events.find((e) => e.title === '开会');
-  assert.ok(meeting, 'event created');
-  assert.equal(meeting.startDate.getHours(), 15);
-  assert.equal(meeting.calendar.identifier, 'C-work');
-  await page.fill('#qa-input', '待办 准备讲稿 2小时');
+  const meeting = store.reminders.find((x) => x.title === '开会');
+  assert.ok(meeting, 'reminder created');
+  assert.equal(meeting.dueDate.getTime(), today().getTime() + 864e5);
+  await page.fill('#qa-input', '准备讲稿');
   await page.press('#qa-input', 'Enter');
   await page.waitForTimeout(300);
-  const talk = store.reminders.find((r) => r.title === '准备讲稿');
-  assert.ok(talk, 'reminder created');
-  assert.equal(talk.dueDate.getDate(), today().getDate());
-
-  // The duration estimate is kept in the settings file
-  const saved = JSON.parse(store.files.get('/docs/oneglance/settings.json'));
-  assert.equal(saved.taskDurations[talk.identifier], 120);
-
-  // Timed tasks get a Scriptable notification
-  assert.ok(store.pending.some((n) => n.identifier.startsWith('oneglance-task-R-2-') && n.title === '交病历'));
+  assert.equal(store.reminders.find((x) => x.title === '准备讲稿').dueDate, null);
+  assert.ok(await page.locator('.inbox .chip', { hasText: '准备讲稿' }).count());
 
   // Settings round trip
   await page.click('[data-act=settings]');
-  await page.locator('[data-act=step][data-name=capacityHours][data-v="1"]').click();
+  await page.locator('[data-act=cap][data-v="1"]').click();
   await page.click('[data-act=settings-save]');
   await page.waitForTimeout(300);
-  assert.equal(JSON.parse(store.files.get('/docs/oneglance/settings.json')).capacityHours, 9);
+  assert.equal(JSON.parse(store.files.get('/docs/oneglance/settings.json')).capacity, 7);
 
   await app.close();
   assert.equal(store.completed, true);
@@ -107,12 +114,13 @@ test('full-screen app reads and writes EventKit through the bridge', async () =>
 test('a series found only by the native check goes to the system editor', async () => {
   const app = await openApp();
   const { page, store } = app;
-  await page.waitForSelector('.blk');
-  const b = await app.block('年度体检');
-  await app.drag({ x: b.x + 30, y: b.y + 12 }, { x: b.x + 30, y: b.y + 68 });
+  await page.waitForSelector('.list .row');
+  const r = await app.row('年度体检');
+  await app.drag({ x: r.x + 120, y: r.y + 20 }, await app.neighbour());
   await page.waitForSelector('.toast');
   assert.match(await page.textContent('.toast'), /重复日程/);
-  assert.ok(store.events.filter((e) => e.identifier === 'E-yearly').every((e) => e.startDate.getHours() === 14), 'series untouched');
+  const series = store.events.filter((e) => e.identifier === 'E-yearly');
+  assert.equal(series[0].startDate.getTime(), app.seeded.at(0, 14).getTime(), 'series untouched');
   await page.click('[data-act=toast-action]');
   await page.waitForTimeout(300);
   assert.deepEqual(store.nativeEdits, ['E-yearly']);
@@ -124,7 +132,7 @@ test('检查更新 replaces the script with the latest build', async () => {
     store.remote = '// icon-glyph: calendar-alt;\n// @version 1234abcd\nGlanceCore';
   });
   const { page, store } = app;
-  await page.waitForSelector('.blk');
+  await page.waitForSelector('.list .row');
   await page.click('[data-act=settings]');
   await page.click('[data-act=self-update]');
   await page.waitForFunction(() => /已更新到 1234abcd/.test(document.querySelector('.toast')?.textContent || ''));
@@ -136,9 +144,9 @@ test('检查更新 replaces the script with the latest build', async () => {
 test('read-only calendars cannot be edited', async () => {
   const app = await openApp();
   const { page } = app;
-  await page.waitForSelector('.blk');
+  await page.waitForSelector('.list .row');
   await page.click('[data-act=next]');
-  await page.locator('.chip', { hasText: '纪念日' }).click();
+  await page.locator('.row', { hasText: '纪念日' }).click();
   await page.waitForSelector('.sheet');
   assert.ok(await page.locator('[data-act=event-save][disabled]').count());
   assert.match(await page.textContent('.sheet'), /只读/);
@@ -156,39 +164,34 @@ test('without calendar access the app explains how to grant it', async () => {
   await app.close();
 });
 
-test('widget shows the shift, upcoming events and tasks', async () => {
+test('widget lists today without clock times', async () => {
   const store = createStore();
   const env = makeGlobals(store, { config: { runsInApp: false, runsInWidget: true, widgetFamily: 'medium' } });
-  const { work } = seed(store, env, today());
-  const soon = new Date(Date.now() + 3600e3);
-  const shiftStart = new Date(today().getTime() + 8 * 3600e3);
-  store.events.push(Object.assign(new env.globals.CalendarEvent(), { identifier: 'E-soon', title: '病例讨论', startDate: soon, endDate: new Date(soon.getTime() + 1800e3), calendar: work }));
-  store.events.push(Object.assign(new env.globals.CalendarEvent(), { identifier: 'E-shift', title: '白班', startDate: shiftStart, endDate: new Date(shiftStart.getTime() + 9 * 3600e3), calendar: work }));
+  seed(store, env, today());
   await runScript(SCRIPT, env.globals);
   const texts = store.widget.texts().join(' | ');
-  assert.match(texts, /白班/);
-  assert.match(texts, /病例讨论/);
+  assert.match(texts, /门诊/);
+  assert.match(texts, /年度体检/);
   assert.match(texts, /回复会诊意见/);
+  assert.match(texts, /待办区 1/);
+  assert.doesNotMatch(texts, /\d{1,2}:\d{2}/);
   assert.equal(store.completed, true);
 });
 
-test('Shortcuts / Siri quick add creates items without the UI', async () => {
+test('Shortcuts / Siri quick add creates tasks without the UI', async () => {
   const store = createStore();
-  const env = makeGlobals(store, { args: { shortcutParameter: '明天下午3点 开会 1小时' } });
+  const env = makeGlobals(store, { args: { shortcutParameter: '明天 开会' } });
   seed(store, env, today());
   await runScript(SCRIPT, env.globals);
-  const ev = store.events.find((e) => e.title === '开会');
-  assert.ok(ev);
-  assert.equal(ev.startDate.getHours(), 15);
-  assert.match(store.shortcutOutput, /已新增日程「开会」/);
+  const r = store.reminders.find((x) => x.title === '开会');
+  assert.ok(r);
+  assert.equal(r.dueDate.getTime(), today().getTime() + 864e5);
+  assert.match(store.shortcutOutput, /已加入明天：「开会」/);
 
   const store2 = createStore();
-  const env2 = makeGlobals(store2, { args: { shortcutParameter: '周六 夜班' } });
+  const env2 = makeGlobals(store2, { args: { shortcutParameter: '买药' } });
   seed(store2, env2, today());
   await runScript(SCRIPT, env2.globals);
-  const night = store2.events.find((e) => e.title === '夜班');
-  assert.ok(night);
-  assert.equal(night.startDate.getHours(), 20);
-  assert.equal(night.startDate.getDay(), 6);
-  assert.match(store2.shortcutOutput, /已排夜班/);
+  assert.equal(store2.reminders.find((x) => x.title === '买药').dueDate, null);
+  assert.match(store2.shortcutOutput, /已加入待办区/);
 });
