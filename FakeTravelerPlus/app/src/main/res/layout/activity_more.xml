@@ -138,6 +138,13 @@
                     android:autoLink="web"
                     android:text="@string/ActivityMore_MapProviderInfo" />
 
+                <androidx.appcompat.widget.AppCompatSpinner
+                    android:id="@+id/sp_MapPreset"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0"
+                    android:entries="@array/MapPresets" />
+
                 <androidx.appcompat.widget.AppCompatEditText
                     android:id="@+id/et_MapProvider"
                     android:layout_width="match_parent"
@@ -145,7 +152,7 @@
                     android:layout_weight="0"
                     android:ems="10"
                     android:inputType="text"
-                    android:text="OpenStreetMap" />
+                    android:visibility="gone" />
 
                 <androidx.constraintlayout.widget.Guideline
                     android:id="@+id/guideline2"

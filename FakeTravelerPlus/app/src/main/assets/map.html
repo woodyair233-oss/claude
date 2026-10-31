@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 
     <title>Mock Position</title>
@@ -13,6 +13,7 @@
     <script src="leaflet.js"></script>
     <script src="leaflet-providers.js"></script>
     <script src="search.js"></script>
+    <script src="chinamaps.js"></script>
     <style>
         html, body {
             height: 100%;
@@ -55,6 +56,9 @@
             .leaflet-control-zoom-out {
                 filter:var(--dark-mode-filter, none);
             }
+            .leaflet-layer.map-tiles-nofilter {
+                filter: none; /* satellite imagery */
+            }
             #search,
             .leaflet-container {
                 background: #000
@@ -66,7 +70,7 @@
 
 <div id="search" style="display: flex">
     <input type="text" id="address_input" name="address_input"
-           placeholder="Search an address: Street, City"
+           placeholder="搜索地址（城市 街道）"
            style="font-size:16pt;flex-grow:1;margin-right:5px">
     <button style="font-size:16pt;width:50px" onclick="searchForAddress()">🔍</button>
 </div>

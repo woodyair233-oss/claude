@@ -14,8 +14,11 @@ import android.text.Html;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -23,6 +26,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 public class MoreActivity extends AppCompatActivity {
@@ -198,8 +202,29 @@ public class MoreActivity extends AppCompatActivity {
 
 
         EditText etMapProvider = findViewById(R.id.et_MapProvider);
+        Spinner spMapPreset = findViewById(R.id.sp_MapPreset);
+        String currentProvider = sharedPref.getString("mapProvider", MapProviderUtil.getDefaultMapProvider());
+        int presetIndex = Arrays.asList(MapProviderUtil.PRESETS).indexOf(currentProvider);
+        // The last spinner entry is "custom": type any leaflet-providers name
+        spMapPreset.setSelection(presetIndex >= 0 ? presetIndex : MapProviderUtil.PRESETS.length);
+        etMapProvider.setVisibility(presetIndex >= 0 ? View.GONE : View.VISIBLE);
+        spMapPreset.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                boolean custom = position >= MapProviderUtil.PRESETS.length;
+                etMapProvider.setVisibility(custom ? View.VISIBLE : View.GONE);
+                if (custom) return;
+                getApplicationContext().getSharedPreferences(sharedPrefKey, Context.MODE_PRIVATE).edit()
+                        .putString("mapProvider", MapProviderUtil.PRESETS[position])
+                        .apply();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
         etMapProvider.setText(sharedPref.getString("mapProvider",
-                MapProviderUtil.getDefaultMapProvider(Locale.getDefault())));
+                MapProviderUtil.getDefaultMapProvider()));
         etMapProvider.addTextChangedListener(new TextWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
@@ -208,7 +233,7 @@ public class MoreActivity extends AppCompatActivity {
                 SharedPreferences.Editor editor = sharedPref.edit();
 
                 if (etMapProvider.getText().toString().isBlank()) {
-                    editor.putString("mapProvider", MapProviderUtil.getDefaultMapProvider(Locale.getDefault()));
+                    editor.putString("mapProvider", MapProviderUtil.getDefaultMapProvider());
                 } else {
                     editor.putString("mapProvider", etMapProvider.getText().toString());
                 }

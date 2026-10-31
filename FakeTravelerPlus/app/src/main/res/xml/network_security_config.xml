@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Gaode tiles are requested over HTTPS; chinamaps.js falls back to HTTP for these hosts only. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">is.autonavi.com</domain>
+    </domain-config>
+</network-security-config>

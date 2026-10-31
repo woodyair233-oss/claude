@@ -268,7 +268,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         context = getApplicationContext();
+        String previousProvider = mapProvider;
         loadSharedPrefs();
+        // The base map was changed in the settings: reload the map page with it.
+        if (previousProvider != null && !previousProvider.equals(mapProvider))
+            applyIntentOrDefault(new Intent());
     }
 
     @Override
@@ -299,7 +303,7 @@ public class MainActivity extends AppCompatActivity {
         dLat = getDouble(sharedPref, "dLat", 0);
         dLng = getDouble(sharedPref, "dLng", 0);
         mockSpeed = sharedPref.getBoolean("mockSpeed", true);
-        mapProvider = sharedPref.getString("mapProvider", MapProviderUtil.getDefaultMapProvider(Locale.getDefault()));
+        mapProvider = sharedPref.getString("mapProvider", MapProviderUtil.getDefaultMapProvider());
         mode = sharedPref.getString("mode", MODE_POINT);
         routeSpeedKmh = getDouble(sharedPref, "routeSpeedKmh", 5);
         try {
@@ -567,7 +571,7 @@ public class MainActivity extends AppCompatActivity {
                         (d, which) -> loadFavorite(favorites.get(which)))
                 .setPositiveButton(MODE_ROUTE.equals(mode)
                         ? R.string.Favorites_SaveRoute : R.string.Favorites_SavePlace, (d, w) -> saveFavorite())
-                .setNegativeButton(android.R.string.cancel, null)
+                .setNegativeButton(R.string.Common_Cancel, null)
                 .setMessage(favorites.isEmpty() ? getString(R.string.Favorites_Empty) : null)
                 .create();
         dialog.show();
@@ -581,7 +585,7 @@ public class MainActivity extends AppCompatActivity {
                             Favorite.saveAll(context, favorites);
                             dialog.dismiss();
                         })
-                        .setNegativeButton(android.R.string.cancel, null)
+                        .setNegativeButton(R.string.Common_Cancel, null)
                         .show();
                 return true;
             });
@@ -612,7 +616,7 @@ public class MainActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle(MODE_ROUTE.equals(mode) ? R.string.Favorites_SaveRoute : R.string.Favorites_SavePlace)
                 .setView(container)
-                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                .setPositiveButton(R.string.Common_Ok, (d, w) -> {
                     String name = input.getText().toString().trim();
                     if (name.isEmpty()) name = DECIMAL_FORMAT.format(points.get(0).lat()) + ", "
                             + DECIMAL_FORMAT.format(points.get(0).lng());
@@ -621,7 +625,7 @@ public class MainActivity extends AppCompatActivity {
                     Favorite.saveAll(context, favorites);
                     showSnackbar(R.string.Favorites_Saved);
                 })
-                .setNegativeButton(android.R.string.cancel, null)
+                .setNegativeButton(R.string.Common_Cancel, null)
                 .show();
     }
 

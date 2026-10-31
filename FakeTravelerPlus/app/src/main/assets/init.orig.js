@@ -4,7 +4,7 @@ var lng = urlParams.get('lng') ?? 15;
 var zoom = urlParams.get('zoom') ?? 12;
 var provider = urlParams.get('provider') ?? 'OpenStreetMap';
 
-var map = L.map('map').setView([lat, lng], zoom);
+var map = L.map('map').setView(toMap(lat, lng), zoom);
 var popup = L.popup();
 var alreadyRunning = false;
 
@@ -16,10 +16,7 @@ var searchInput = document.getElementById("address_input");
       }
     });
 
-L.tileLayer.provider(provider, {
-    className: 'map-tiles',
-    referrerPolicy: 'strict-origin-when-cross-origin',
-}).addTo(map);
+addBaseLayer(map, provider);
 
 var icon = L.icon({
     iconUrl: 'marker-icon-2x.png',
@@ -39,7 +36,7 @@ async function searchForAddress() {
     var lng = coords[1];
 
     var mapEvent = {
-        latlng: L.latLng(lat, lng)
+        latlng: toMap(lat, lng)
     };
     setOnMap(lat, lng);
     onMapClick(mapEvent);
@@ -47,14 +44,14 @@ async function searchForAddress() {
 
 function onMapClick(e) {
   if (mode === 'route') {
-    var w = e.latlng.wrap();
+    var w = fromMap(e.latlng.wrap());
     Android.addWaypoint(w.lat, w.lng);
     return;
   }
     if (typeof mapMarker != 'undefined')
         map.removeLayer(mapMarker);
     mapMarker = L.marker(e.latlng, {icon: icon}).addTo(map);
-    var wrap = e.latlng.wrap().toString();
+    var wrap = fromMap(e.latlng.wrap()).toString();
     Android.setPosition(wrap);
 }
 
@@ -64,14 +61,14 @@ function onZoomEnd(e) {
 
 function setOnMap(aLat, aLng) {
   if (mode === 'route') {
-    map.panTo(new L.LatLng(aLat, aLng));
+    map.panTo(toMap(aLat, aLng));
     return;
   }
     if (typeof mapMarker != 'undefined')
         map.removeLayer(mapMarker);
     zoom = map.getZoom();
-    map.setView(new L.LatLng(aLat, aLng), zoom);
-    mapMarker = L.marker([aLat, aLng], {icon: icon}).addTo(map);
+    map.setView(toMap(aLat, aLng), zoom);
+    mapMarker = L.marker(toMap(aLat, aLng), {icon: icon}).addTo(map);
     alreadyRunning = true;
     //alert(alreadyRunning);
 }
@@ -79,7 +76,7 @@ function setOnMap(aLat, aLng) {
 map.on('contextmenu', onMapClick);
 map.on('zoomend', onZoomEnd);
 
-mapMarker = L.marker([lat, lng], {icon: icon}).addTo(map);
+mapMarker = L.marker(toMap(lat, lng), {icon: icon}).addTo(map);
 
 // ---- Route mode and live position (plain ES5, no transpiling needed) ----
 
@@ -98,8 +95,10 @@ function setMode(newMode) {
 }
 
 // points: [[lat, lng], ...]
-function setRoute(points, fit) {
+function setRoute(wgsPoints, fit) {
   routeLayer.clearLayers();
+  var points = [];
+  for (var j = 0; j < wgsPoints.length; j++) points.push(toMap(wgsPoints[j][0], wgsPoints[j][1]));
   if (points.length > 1) {
     L.polyline(points, {color: '#1e88e5', weight: 4, opacity: 0.8}).addTo(routeLayer);
   }
@@ -123,8 +122,9 @@ function setRoute(points, fit) {
 
 // Current mocked position while a mock runs; does not move the map.
 function showMockPosition(aLat, aLng) {
+  var p = toMap(aLat, aLng);
   if (mockDot === null) {
-    mockDot = L.circleMarker([aLat, aLng], {
+    mockDot = L.circleMarker(p, {
       radius: 8,
       color: '#ffffff',
       weight: 3,
@@ -132,7 +132,7 @@ function showMockPosition(aLat, aLng) {
       fillOpacity: 1
     }).addTo(map);
   } else {
-    mockDot.setLatLng([aLat, aLng]);
+    mockDot.setLatLng(p);
   }
   mockDot.bringToFront();
 }
