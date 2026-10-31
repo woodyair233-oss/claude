@@ -1,0 +1,73 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="app_name" translatable="false">Fake Traveler+</string>
+
+    <!--  Strings from activity_main.xml layout  -->
+    <!-- Latitude abbreviation  -->
+    <string name="ActivityMain_Lat">Lat</string>
+    <!-- Longitude abbreviation  -->
+    <string name="ActivityMain_Long">Long</string>
+    <string name="ActivityMain_Apply">Apply</string>
+    <!-- Apply button then becomes Stop button through java code-->
+    <string name="ActivityMain_Stop">Stop</string>
+
+    <!--  Strings from MainActivity.java  -->
+    <string name="MainActivity_NoLatLong">No latitude/longitude values. Long press in the map where you want to be located.</string>
+    <string name="MainActivity_MockApplied">Mocked location applied.</string>
+    <string name="MainActivity_MockNotApplied">Mocked location not applied. You must enable mock location in developer settings!</string>
+    <string name="MainActivity_MockLocRunning">Mocking location service running.</string>
+    <string name="MainActivity_MockStopped">Mocking stopped.</string>
+
+    <!--  Strings from activity_more.xml layout  -->
+    <string name="ActivityMore_HowToTittle">How to use it?</string>
+    <string name="ActivityMore_HowManyTimes">How many times you want to mock the location? (0&#160;=&#160;infinite)</string>
+    <string name="ActivityMore_TimeInterval">How many seconds between every mock?</string>
+    <string name="ActivityMore_Speed">Mock movement as speed</string>
+    <string name="ActivityMore_Copyright">Copyright 2018\-2025 Matías Castillo Felmer and contributors</string>
+    <string name="ActivityMore_SourceCode">Source code available in https://github.com/mcastillof/FakeTraveler</string>
+    <string name="ActivityMore_Bugs">Report bugs to https://github.com/mcastillof/FakeTraveler/issues</string>
+    <string name="ActivityMore_IconLicense">The launcher icon was created by @ArtistDev44 - thank you very much for your work!</string>
+    <string name="ActivityMore_HowToInstructions">Point mode: long press where you want to be located in the map and press Apply. The location will be mocked one or more times according to the configuration below. While the mock is running, long press the map to jump to another place. Route mode: long press the map to add waypoints in order, set the speed and loop mode, and press Apply to move along the route. The mock keeps running in the background; pause or stop it from the notification. Use ★ to save and reload places and routes (long press an item to delete it). Note: you must select Fake Traveler+ as mock location app in Developer options.</string>
+    <string name="ActivityMore_DMockLatLon">Mock movement? (1&#160;/&#160;1 000 000°, 0&#160;=&#160;no)</string>
+    <string name="ActivityMore_MapProvider">Map Provider (e.g., \'OpenStreetMap\')</string>
+    <string name="ActivityMore_MapProviderInfo">Requires restart - a list of possible values can be found here: https://leaflet-extras.github.io/leaflet-providers/preview/</string>
+    <string name="ActivityMore_LeafletLicense"><![CDATA[Both <a href="https://github.com/Leaflet/Leaflet/blob/main/LICENSE">Leaflet</a> and <a href="https://github.com/leaflet-extras/leaflet-providers/blob/master/license.md">Leaflet-providers</a> are licensed under the BSD 2-Clause License.]]></string>
+
+    <!--  FakeTravelerPlus: route mode, favorites, foreground service  -->
+    <string name="ActivityMain_ModePoint">Point</string>
+    <string name="ActivityMain_ModeRoute">Route</string>
+    <string name="ActivityMain_Favorites">Favorites</string>
+    <string name="ActivityMain_Settings">Settings</string>
+    <string name="ActivityMain_RouteUndo">Undo</string>
+    <string name="ActivityMain_RouteClear">Clear</string>
+    <string name="ActivityMain_SpeedHint">5</string>
+    <string name="ActivityMain_SpeedUnit">km/h</string>
+    <!-- %1$d number of waypoints, %2$s total distance -->
+    <string name="ActivityMain_RouteInfo">%1$d waypoints · %2$s</string>
+    <string-array name="LoopModes">
+        <!-- Order must match RouteSimulator.LoopMode -->
+        <item>Once, stay at end</item>
+        <item>Loop</item>
+        <item>Back and forth</item>
+    </string-array>
+    <string name="MainActivity_NoRoute">No waypoints. Long press the map to add waypoints.</string>
+    <string name="MainActivity_NoSpeed">Enter a speed greater than 0.</string>
+    <string name="MainActivity_NeedLocationPermission">The location permission is needed to keep mocking in the background.</string>
+    <string name="MainActivity_RestartToApply">Route changed. Stop and apply again to use it.</string>
+    <string name="MainActivity_StopFirst">Stop the running mock first.</string>
+    <string name="Action_Pause">Pause</string>
+    <string name="Action_Resume">Resume</string>
+    <string name="Notification_Channel">Mock location</string>
+    <string name="Notification_Running">Mocking location</string>
+    <string name="Notification_Paused">Mock paused (holding position)</string>
+    <string name="Notification_Arrived">Arrived at the last waypoint</string>
+    <string name="Favorites_SavePlace">Save this place</string>
+    <string name="Favorites_SaveRoute">Save this route</string>
+    <string name="Favorites_Empty">Nothing saved yet. Long press an item to delete it.</string>
+    <string name="Favorites_NameHint">Name</string>
+    <string name="Favorites_Saved">Saved to favorites.</string>
+    <string name="Favorites_Delete">Delete</string>
+    <!-- %1$s favorite name -->
+    <string name="Favorites_DeleteConfirm">Delete \"%1$s\"?</string>
+    <string name="Favorites_RouteTooShort">A route needs at least 2 waypoints.</string>
+    <string name="ActivityMore_Fork">Fake Traveler+ adds route mode, favorites and background mocking on top of Fake Traveler, under the same GPL-3.0 license.</string>
+</resources>

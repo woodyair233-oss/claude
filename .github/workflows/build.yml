@@ -2,7 +2,13 @@ name: Build
 
 on:
   push:
+    paths-ignore:
+      - 'FakeTravelerPlus/**'
+      - '.github/workflows/android.yml'
   pull_request:
+    paths-ignore:
+      - 'FakeTravelerPlus/**'
+      - '.github/workflows/android.yml'
   workflow_dispatch:
 
 jobs:

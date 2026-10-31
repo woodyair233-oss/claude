@@ -67,3 +67,9 @@ dotnet build PowerHelper/PowerHelper.csproj -c Release
 - 涉及的电源设置：`VIDEOIDLE`（关闭屏幕）、`STANDBYIDLE`（睡眠）、`HIBERNATEIDLE`（休眠）、`PBUTTONACTION`（电源键，4 = 关闭显示器）、`LIDACTION`（合盖）。
 - “现代待机”由 `GetPwrCapabilities` 的 `AoAc` 字段判断。
 - “立即息屏”发送 `WM_SYSCOMMAND / SC_MONITORPOWER`（延迟 1 秒，避免放开按键或鼠标时立刻又亮屏）；桌面快捷方式运行 `PowerHelper.exe /screenoff`，程序本体会复制到 `%LOCALAPPDATA%\PowerHelper\`，避免移动或删除下载的文件后快捷方式失效。
+
+---
+
+## 本仓库的其他项目
+
+- [FakeTravelerPlus/](FakeTravelerPlus/README.md)：Android 模拟定位工具，用于测试自己开发的 App，支持单点、路线、收藏和后台运行，基于 FakeTraveler 修改。
