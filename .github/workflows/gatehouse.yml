@@ -113,6 +113,35 @@ jobs:
             echo "Gatehouse:   $(lipo -archs "$app/Contents/MacOS/Gatehouse")"
             echo "gatehouse-mcp: $(lipo -archs "$app/Contents/Resources/bin/gatehouse-mcp")"
           done
+      - name: Verify hardening (Electron fuses, Info.plist, asar-only)
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          for app in release/mac-arm64/Gatehouse.app release/mac/Gatehouse.app; do
+            echo "== $app"
+            plist="$app/Contents/Info.plist"
+            ver=$(plutil -extract CFBundleShortVersionString raw "$plist")
+            echo "version $ver · min macOS $(plutil -extract LSMinimumSystemVersion raw "$plist") · id $(plutil -extract CFBundleIdentifier raw "$plist")"
+            [ "$ver" = "$pkg" ] || { echo "::error::bundle version $ver != package.json $pkg"; exit 1; }
+            plutil -extract NSLocalNetworkUsageDescription raw "$plist" >/dev/null
+            plutil -extract ElectronAsarIntegrity xml1 -o - "$plist" >/dev/null && echo "asar integrity hash: present"
+            [ -f "$app/Contents/Resources/app.asar" ] && [ ! -d "$app/Contents/Resources/app" ] && echo "app code: asar only"
+            node -e '
+              const { getCurrentFuseWire, FuseV1Options } = require("@electron/fuses");
+              const want = { RunAsNode: 0, EnableCookieEncryption: 1, EnableNodeOptionsEnvironmentVariable: 0,
+                EnableNodeCliInspectArguments: 0, EnableEmbeddedAsarIntegrityValidation: 1, OnlyLoadAppFromAsar: 1,
+                LoadBrowserProcessSpecificV8Snapshot: 0, GrantFileProtocolExtraPrivileges: 0 };
+              getCurrentFuseWire(process.argv[1]).then((w) => {
+                let bad = 0;
+                for (const [k, exp] of Object.entries(want)) {
+                  const v = w[FuseV1Options[k]];
+                  const got = v === 49 ? 1 : v === 48 ? 0 : -1;
+                  if (got !== exp) bad++;
+                  console.log((got === exp ? "ok    " : "FAIL  ") + k + " = " + (got === 1 ? "on" : got === 0 ? "off" : "?"));
+                }
+                process.exit(bad ? 1 : 0);
+              }).catch((e) => { console.error(e.message); process.exit(1); });
+            ' "$app"
+          done
       - name: Verify DMG images
         run: |
           for dmg in release/Gatehouse-*.dmg; do
