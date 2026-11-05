@@ -1,0 +1,79 @@
+appId: io.github.woodyair233.gatehouse
+productName: Gatehouse
+copyright: Copyright © 2026 Gatehouse contributors
+directories:
+  output: release
+  buildResources: build
+artifactName: Gatehouse-${version}-${arch}.${ext}
+
+files:
+  - dist/**/*
+  - "!**/*.map"
+  - package.json
+  # ssh2's optional native addons: excluded so the pure-JS/WASM fallbacks are
+  # used consistently (prebuilt binaries would target the wrong ABI/arch).
+  - "!node_modules/cpu-features/**/*"
+  - "!node_modules/nan/**/*"
+  - "!node_modules/buildcheck/**/*"
+  - "!node_modules/ssh2/lib/protocol/crypto/build/**/*"
+  - "!node_modules/ssh2/lib/protocol/crypto/src/**/*"
+  - "!node_modules/**/*.{md,markdown,ts,map}"
+  - "!node_modules/**/{test,tests,__tests__,example,examples}/**/*"
+
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+
+extraResources:
+  - from: build/bin/darwin-${arch}/gatehouse-mcp
+    to: bin/gatehouse-mcp
+  - from: build/tray
+    to: tray
+
+# Hardening: no ELECTRON_RUN_AS_NODE / NODE_OPTIONS / --inspect abuse of the
+# app's identity (and its Keychain access), app code only from the signed asar.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  loadBrowserProcessSpecificV8Snapshot: false
+  grantFileProtocolExtraPrivileges: false
+
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  # Ad-hoc signature (no Apple Developer ID). Required for Apple Silicon.
+  identity: "-"
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  darkModeSupport: true
+  minimumSystemVersion: "12.0"
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  extendInfo:
+    NSLocalNetworkUsageDescription: Gatehouse connects to SSH servers on your local network.
+    NSHumanReadableCopyright: Copyright © 2026 Gatehouse contributors
+
+dmg:
+  title: Gatehouse ${version}
+  background: build/dmg-background.png
+  iconSize: 100
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 140
+      y: 196
+    - x: 400
+      y: 196
+      type: link
+      path: /Applications
+
+publish: []

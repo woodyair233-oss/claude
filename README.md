@@ -1,5 +1,7 @@
 # 电源助手（PowerHelper）
 
+> 本仓库包含两个项目：**电源助手（PowerHelper）**（Windows，见下文）与 **[Gatehouse](Gatehouse/README.md)**（macOS：给 Claude 用的 SSH 客户端兼安全网关）。
+
 Windows 小工具：设置电脑闲置多久后自动**关闭屏幕、睡眠、休眠**，设置电源键与合盖动作，并提供**只关屏幕、电脑继续运行**的“立即息屏”（可用快捷键 `Ctrl+Alt+S`）。
 
 ## 功能

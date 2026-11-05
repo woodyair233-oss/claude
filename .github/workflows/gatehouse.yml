@@ -1,0 +1,130 @@
+name: Gatehouse
+
+on:
+  push:
+    paths:
+      - 'Gatehouse/**'
+      - '.github/workflows/gatehouse.yml'
+    tags:
+      - 'gatehouse-v*'
+  pull_request:
+    paths:
+      - 'Gatehouse/**'
+      - '.github/workflows/gatehouse.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: Gatehouse
+
+jobs:
+  test:
+    name: Tests (Linux, real sshd)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Gatehouse/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - run: npm ci
+      - run: npm run build:bridge
+      - run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Integration tests (OpenSSH server + MCP bridge)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openssh-server
+          sudo -E env "PATH=$PATH" npx vitest run --config vitest.integration.config.mts
+      - name: End-to-end UI test (Electron + Playwright)
+        run: |
+          npm run build:main
+          npx vite build --config vite.config.mts
+          sudo apt-get install -y -qq xvfb
+          # Playwright drives Electron directly; no browser download needed.
+          npm install --no-save playwright@1.63.0
+          sudo -E env "PATH=$PATH" xvfb-run -a node tests/e2e/ui.cjs "$RUNNER_TEMP/shots"
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gatehouse-screenshots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
+
+  mac:
+    name: macOS app (arm64 + x64)
+    needs: test
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Gatehouse/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - run: npm ci
+      - name: Build bridge, main and renderer
+        run: npm run build
+      - name: Package (ad-hoc signed DMG + zip)
+        run: npx electron-builder --mac --publish never
+      - name: Verify code signatures
+        run: |
+          for arch in arm64 x64; do
+            app="release/mac-$arch/Gatehouse.app"
+            [ "$arch" = x64 ] && app="release/mac/Gatehouse.app"
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign -dv "$app" 2>&1 | grep -E 'Identifier|Signature|Format'
+            codesign --verify --verbose=2 "$app/Contents/Resources/bin/gatehouse-mcp"
+            lipo -archs "$app/Contents/MacOS/Gatehouse" "$app/Contents/Resources/bin/gatehouse-mcp"
+          done
+      - name: Upload DMG (Apple Silicon)
+        uses: actions/upload-artifact@v7
+        with:
+          path: Gatehouse/release/Gatehouse-*-arm64.dmg
+          archive: false
+          if-no-files-found: error
+      - name: Upload DMG (Intel)
+        uses: actions/upload-artifact@v7
+        with:
+          path: Gatehouse/release/Gatehouse-*-x64.dmg
+          archive: false
+          if-no-files-found: error
+      - name: Smoke test the packaged app on macOS
+        run: |
+          export GATEHOUSE_HOME="$RUNNER_TEMP/gatehouse-home"
+          app="release/mac-arm64/Gatehouse.app"
+          "$app/Contents/MacOS/Gatehouse" --hidden > "$RUNNER_TEMP/app.log" 2>&1 &
+          pid=$!
+          for i in $(seq 1 90); do
+            [ -S "$GATEHOUSE_HOME/run/mcp.sock" ] && break
+            sleep 1
+          done
+          "$app/Contents/Resources/bin/gatehouse-mcp" --doctor
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+            | (cat; sleep 3) | "$app/Contents/Resources/bin/gatehouse-mcp" --no-launch | tee "$RUNNER_TEMP/mcp.out"
+          grep -q '"run_command"' "$RUNNER_TEMP/mcp.out"
+          kill $pid || true
+          echo "--- app log"; tail -n 40 "$RUNNER_TEMP/app.log" || true
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/gatehouse-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Gatehouse/release/*.dmg
+            Gatehouse/release/*.zip

@@ -17,13 +17,13 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "dist:mac": "electron-builder --mac --publish never",
-    "pack:darwin": "node scripts/pack-darwin.mjs"
+    "test:e2e": "xvfb-run -a node tests/e2e/ui.cjs test-results/shots",
+    "icons": "node scripts/make-icons.cjs"
   },
   "dependencies": {
     "ssh2": "1.17.0"
   },
   "devDependencies": {
-    "@electron/packager": "20.3.0",
     "@fontsource-variable/inter": "5.3.0",
     "@fontsource/jetbrains-mono": "5.3.0",
     "@modelcontextprotocol/client": "^2.4.0",
@@ -51,5 +51,10 @@
     "vitest": "5.0.5",
     "zod": "4.6.7",
     "zustand": "5.0.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woodyair233-oss/claude.git",
+    "directory": "Gatehouse"
   }
 }
