@@ -140,15 +140,30 @@ jobs:
           # Tests exactly what users download: mount each DMG, launch the app
           # from it, and drive a real MCP handshake through its bundled bridge.
           smoke() {
-            local app="$1" label="$2"
+            local app="$1" label="$2" wait_s="$3"
             local home="$RUNNER_TEMP/gatehouse-home-$label"
             rm -rf "$home" && mkdir -p "$home"
+            # Start like a first install: a vault key left in the login Keychain
+            # by the other build (a different ad-hoc signature) would raise an
+            # access prompt that nobody can answer on CI.
+            for svc in "Gatehouse Safe Storage" "gatehouse Safe Storage"; do
+              while security delete-generic-password -s "$svc" >/dev/null 2>&1; do :; done
+            done
             GATEHOUSE_HOME="$home" "$app/Contents/MacOS/Gatehouse" --hidden > "$RUNNER_TEMP/app-$label.log" 2>&1 &
             local pid=$!
-            for i in $(seq 1 120); do
-              [ -S "$home/run/mcp.sock" ] && break
+            local up=0
+            for i in $(seq 1 "$wait_s"); do
+              if [ -S "$home/run/mcp.sock" ]; then up=1; echo "$label: MCP socket up after ${i}s"; break; fi
+              if ! kill -0 "$pid" 2>/dev/null; then echo "$label: app exited early"; break; fi
               sleep 1
             done
+            if [ "$up" != 1 ]; then
+              echo "::error::$label app did not open its MCP socket within ${wait_s}s"
+              echo "--- $label app log"; tail -n 80 "$RUNNER_TEMP/app-$label.log" || true
+              echo "--- processes"; ps -axo pid,etime,command | grep -i "[G]atehouse" || true
+              kill "$pid" 2>/dev/null || true
+              return 1
+            fi
             GATEHOUSE_HOME="$home" "$app/Contents/Resources/bin/gatehouse-mcp" --doctor
             printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
               '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
@@ -169,7 +184,8 @@ jobs:
             mnt=$(mktemp -d)
             echo "== $dmg"
             hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg"
-            smoke "$mnt/Gatehouse.app" "$arch"
+            # Rosetta translates the x64 Electron framework on first launch, so allow more time.
+            smoke "$mnt/Gatehouse.app" "$arch" "$([ "$arch" = x64 ] && echo 300 || echo 120)"
             hdiutil detach "$mnt" || hdiutil detach -force "$mnt"
           done
       - name: Publish release
