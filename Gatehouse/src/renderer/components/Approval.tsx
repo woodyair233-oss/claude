@@ -45,14 +45,24 @@ export function ApprovalCard({ req, autoFocus }: { req: ApprovalRequest; autoFoc
   const [busy, setBusy] = useState<string | null>(null);
   const [showAi, setShowAi] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  // Guard against an accidental approval: a key pressed in the moment the card
+  // appears (e.g. Enter typed into a terminal) must not activate Allow. We arm
+  // the keyboard shortcut only after a short delay, and never focus Allow itself.
+  const [armed, setArmed] = useState(false);
   const remaining = req.expiresAt - Date.now();
   const total = req.expiresAt - req.createdAt;
   const host = snap.hosts.find((h) => h.id === req.hostId);
   const grantable = (req.kind === 'command' || req.kind === 'write-file') && req.cause !== 'danger' && req.cause !== 'sensitive' && req.cause !== 'system-path' && host?.ai.mode !== 'read-only';
   const editedAssessment = useMemo(() => (editing && edited.trim() ? assessCommand(edited) : null), [editing, edited]);
+  const allowDisabled = needsTyped && confirmText.trim().toLowerCase() !== req.hostAlias.toLowerCase();
 
   useEffect(() => {
-    if (autoFocus) cardRef.current?.querySelector<HTMLButtonElement>('.ac-allow')?.focus();
+    setArmed(false);
+    const timer = setTimeout(() => setArmed(true), 700);
+    // Move focus into the dialog (the card itself, not the Allow button) so
+    // keyboard users land here without a stray Enter approving anything.
+    if (autoFocus) cardRef.current?.focus();
+    return () => clearTimeout(timer);
   }, [autoFocus, req.id]);
 
   const decide = async (decision: ApprovalDecision) => {
@@ -74,9 +84,13 @@ export function ApprovalCard({ req, autoFocus }: { req: ApprovalRequest; autoFoc
   return (
     <div
       ref={cardRef}
+      tabIndex={-1}
+      role="alertdialog"
+      aria-label={`${req.client.name} ${kindTitle(req)} ${req.hostAlias}`}
       className={`approval-card ${req.assessment?.risk === 'danger' || req.cause === 'danger' ? 'is-danger' : ''}`}
       onKeyDown={(e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !denying) {
+        // Approve with ⌘↩ / Ctrl↩ only once armed and only when Allow is enabled.
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !denying && armed && !allowDisabled) {
           e.preventDefault();
           allow('once');
         }
@@ -195,7 +209,7 @@ export function ApprovalCard({ req, autoFocus }: { req: ApprovalRequest; autoFoc
                 {t('Always allow')}
               </Button>
             )}
-            <Button className="ac-allow" variant="primary" loading={busy === 'once'} disabled={needsTyped && confirmText.trim().toLowerCase() !== req.hostAlias.toLowerCase()} icon={req.requireTouchId && snap.touchIdAvailable ? <Fingerprint size={14} /> : undefined} onClick={() => allow('once')}>
+            <Button className="ac-allow" variant="primary" loading={busy === 'once'} disabled={allowDisabled} icon={req.requireTouchId && snap.touchIdAvailable ? <Fingerprint size={14} /> : undefined} onClick={() => allow('once')}>
               {editing ? t('Run edited command') : t('Allow once')}
               <kbd className="btn-kbd">{navigator.platform.includes('Mac') ? '⌘↩' : 'Ctrl ↩'}</kbd>
             </Button>

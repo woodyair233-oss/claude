@@ -52,7 +52,7 @@ export interface GatehouseApi {
     test(id: string): Promise<HostTestResult>;
     disconnect(id: string): Promise<void>;
     scanSshConfig(): Promise<ImportCandidate[]>;
-    importSshConfig(aliases: string[]): Promise<{ imported: number; keysImported: number; skipped: string[] }>;
+    importSshConfig(aliases: string[]): Promise<{ imported: number; keysImported: number; skipped: string[]; unresolvedJumps: string[] }>;
     copySshCommand(id: string): Promise<void>;
   };
 
@@ -138,6 +138,8 @@ export interface GatehouseApi {
   vault: {
     create(password?: string): Promise<void>;
     unlock(password: string): Promise<boolean>;
+    retryKeychain(): Promise<boolean>;
+    reset(password?: string): Promise<void>;
     setPassword(current: string | null, next: string | null): Promise<void>;
     setKeychain(enabled: boolean): Promise<void>;
   };

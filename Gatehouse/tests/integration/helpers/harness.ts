@@ -33,7 +33,10 @@ export function fakeVault(sshd: TestSshd, keys: Map<string, string>): Vault {
     setPrivateKey: async () => undefined,
     forgetHost: async () => undefined,
     savedPasswordHostIds: () => [],
-    status: () => ({ state: 'unlocked', backend: 'basic', keychainWrap: false, passwordWrap: false }),
+    deriveKey: () => undefined,
+    on: () => undefined,
+    off: () => undefined,
+    status: () => ({ state: 'unlocked', backend: 'basic', keychainWrap: false, passwordWrap: false, unrecoverable: false }),
   } as unknown as Vault;
 }
 

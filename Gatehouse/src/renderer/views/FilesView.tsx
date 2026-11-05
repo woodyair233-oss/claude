@@ -275,13 +275,18 @@ export function FilesView() {
   const [dragOver, setDragOver] = useState(false);
   const lastUploadCount = useRef(0);
 
+  const reqSeq = useRef(0);
   const load = useCallback(
     async (target: string, pushHistory = true) => {
       if (!hostId) return;
+      const seq = ++reqSeq.current;
+      const forHost = hostId;
       setLoading(true);
       setError('');
       try {
-        const r = await api().sftp.list(hostId, target || '.');
+        const r = await api().sftp.list(forHost, target || '.');
+        // Ignore a response that arrived after the user switched host or folder.
+        if (seq !== reqSeq.current) return;
         setEntries(r.entries);
         setSelected(new Set());
         setPath((prev) => {
@@ -289,9 +294,9 @@ export function FilesView() {
           return r.path;
         });
       } catch (err) {
-        setError((err as Error).message);
+        if (seq === reqSeq.current) setError((err as Error).message);
       } finally {
-        setLoading(false);
+        if (seq === reqSeq.current) setLoading(false);
       }
     },
     [hostId],

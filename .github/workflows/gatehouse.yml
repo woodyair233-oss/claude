@@ -91,7 +91,8 @@ jobs:
             codesign --verify --deep --strict --verbose=2 "$app"
             codesign -dv "$app" 2>&1 | grep -E 'Identifier|Signature|Format'
             codesign --verify --verbose=2 "$app/Contents/Resources/bin/gatehouse-mcp"
-            lipo -archs "$app/Contents/MacOS/Gatehouse" "$app/Contents/Resources/bin/gatehouse-mcp"
+            echo "Gatehouse:   $(lipo -archs "$app/Contents/MacOS/Gatehouse")"
+            echo "gatehouse-mcp: $(lipo -archs "$app/Contents/Resources/bin/gatehouse-mcp")"
           done
       - name: Upload DMG (Apple Silicon)
         uses: actions/upload-artifact@v7

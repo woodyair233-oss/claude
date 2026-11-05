@@ -9,7 +9,9 @@ import { join } from 'node:path';
 export type SystemKnownHostResult = 'match' | 'mismatch' | 'revoked' | 'unknown';
 
 function hostPatternToRegex(pattern: string): RegExp {
-  const src = pattern.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+  // Escape regex metacharacters including [ and ] so a non-default-port entry
+  // like "[host]:2222" is matched literally, not read as a character class.
+  const src = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
   return new RegExp(`^${src}$`, 'i');
 }
 

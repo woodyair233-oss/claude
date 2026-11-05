@@ -120,6 +120,8 @@ const api: GatehouseApi = {
   vault: {
     create: invoke('vault:create'),
     unlock: invoke('vault:unlock'),
+    retryKeychain: invoke('vault:retryKeychain'),
+    reset: invoke('vault:reset'),
     setPassword: invoke('vault:setPassword'),
     setKeychain: invoke('vault:setKeychain'),
   },

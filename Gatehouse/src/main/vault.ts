@@ -30,6 +30,8 @@ interface VaultFile {
   keychain?: string;
   password?: PasswordWrap;
   secrets?: Sealed;
+  /** The user turned off "unlock automatically with the Keychain"; do not re-add it. */
+  keychainDisabled?: boolean;
 }
 
 export interface Secrets {
@@ -46,6 +48,8 @@ export interface VaultStatus {
   backend: VaultBackend;
   keychainWrap: boolean;
   passwordWrap: boolean;
+  /** Locked with no way to open it from disk; the UI should offer Retry / Reset. */
+  unrecoverable: boolean;
 }
 
 const emptySecrets = (): Secrets => ({ hostPasswords: {}, keyPrivate: {}, keyPassphrases: {} });
@@ -79,6 +83,8 @@ export { seal as sealWithKey, open as openWithKey };
 
 export class Vault extends EventEmitter {
   private dek: Buffer | null = null;
+  /** A Keychain entry existed at startup but failed to decrypt (needs replacing after password unlock). */
+  private keychainStale = false;
   private secrets: Secrets = emptySecrets();
   private file: VaultFile = { version: 1 };
   private state: VaultState = 'uninitialized';
@@ -94,6 +100,7 @@ export class Vault extends EventEmitter {
       backend: this.backend,
       keychainWrap: !!this.file.keychain,
       passwordWrap: !!this.file.password,
+      unrecoverable: this.unrecoverable,
     };
   }
 
@@ -150,7 +157,10 @@ export class Vault extends EventEmitter {
         this.adopt(Buffer.from(result, 'hex'));
         return this.state;
       } catch (err) {
+        // A stale Keychain entry (e.g. a new ad-hoc signature after an update)
+        // can be replaced once the user unlocks with their password.
         console.warn('[gatehouse] keychain unwrap failed:', (err as Error).message);
+        this.keychainStale = true;
       }
     }
     this.state = 'locked';
@@ -187,9 +197,11 @@ export class Vault extends EventEmitter {
     try {
       const kek = await derivePasswordKey(password, Buffer.from(wrap.salt, 'base64'), { N: wrap.N, r: wrap.r, p: wrap.p });
       this.adopt(open(wrap, kek));
-      // Re-wrap with the Keychain if it became available again (e.g. after re-signing).
-      if (!this.file.keychain && this.backend !== 'unavailable' && this.dek) {
+      // Replace a stale Keychain entry (one that failed to decrypt at startup),
+      // but only when the user has not deliberately turned auto-unlock off.
+      if (this.keychainStale && !this.file.keychainDisabled && this.backend !== 'unavailable' && this.dek) {
         this.file.keychain = (await safeStorage.encryptStringAsync(this.dek.toString('hex'))).toString('base64');
+        this.keychainStale = false;
         await this.persist();
       }
       return true;
@@ -208,6 +220,39 @@ export class Vault extends EventEmitter {
     } catch {
       return false;
     }
+  }
+
+  /** Re-attempts the Keychain unwrap (e.g. after the user allowed access on a retry). */
+  async retryKeychain(): Promise<boolean> {
+    if (this.state === 'unlocked') return true;
+    if (!this.file.keychain || this.backend === 'unavailable') return false;
+    try {
+      const { result } = await safeStorage.decryptStringAsync(Buffer.from(this.file.keychain, 'base64'));
+      this.adopt(Buffer.from(result, 'hex'));
+      this.keychainStale = false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * True when the vault is locked but cannot be opened with what is on disk
+   * (the only wrap is a Keychain entry that fails and there is no password).
+   * The UI uses this to offer Retry / Reset instead of a dead password prompt.
+   */
+  get unrecoverable(): boolean {
+    return this.state === 'locked' && !this.file.password;
+  }
+
+  /** Discards the current (unopenable) vault and starts fresh. Saved secrets are lost. */
+  async reset(password?: string): Promise<void> {
+    this.dek = null;
+    this.secrets = emptySecrets();
+    this.file = { version: 1 };
+    this.state = 'uninitialized';
+    this.keychainStale = false;
+    await this.create(password);
   }
 
   private async wrapWithPassword(dek: Buffer, password: string): Promise<PasswordWrap> {
@@ -235,9 +280,12 @@ export class Vault extends EventEmitter {
     if (enabled) {
       if (this.backend === 'unavailable') throw new Error('The system keychain is not available.');
       this.file.keychain = (await safeStorage.encryptStringAsync(this.dek.toString('hex'))).toString('base64');
+      delete this.file.keychainDisabled;
+      this.keychainStale = false;
     } else {
       if (!this.file.password) throw new Error('Set a master password before turning off the Keychain.');
       delete this.file.keychain;
+      this.file.keychainDisabled = true;
     }
     await this.persist();
     this.emit('change');

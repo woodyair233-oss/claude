@@ -49,15 +49,27 @@ const CONNECTION_FIELDS: (keyof Host)[] = ['hostname', 'port', 'username', 'auth
 export function registerIpc(ctx: AppContext) {
   const { store, vault, pool, terminals, sftp, forwards, gateway, prompts } = ctx;
 
+  // While the app is locked, only these channels are served. Everything else —
+  // terminal writes, approvals, SFTP, host/settings changes — is refused in the
+  // main process, so a lock screen drawn over the UI cannot be bypassed by
+  // tabbing to a control underneath it.
+  const LOCKED_ALLOWED = new Set([
+    'app:snapshot', 'gateway:activity', 'app:unlock', 'app:quit', 'app:openExternal',
+    'vault:unlock', 'vault:create', 'vault:reset', 'vault:retryKeychain',
+  ]);
+  const blockedWhileLocked = (channel: string) => ctx.ui.locked && !LOCKED_ALLOWED.has(channel);
+
   const handle = <A extends unknown[], R>(channel: string, fn: (...args: A) => R | Promise<R>) => {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!trusted(ctx, event)) throw new Error('Untrusted sender');
+      if (blockedWhileLocked(channel)) throw new Error('Gatehouse is locked.');
       return fn(...(args as A));
     });
   };
   const on = <A extends unknown[]>(channel: string, fn: (...args: A) => void) => {
     ipcMain.on(channel, (event, ...args) => {
       if (!trusted(ctx, event)) return;
+      if (blockedWhileLocked(channel)) return;
       try {
         fn(...(args as A));
       } catch (err) {
@@ -305,15 +317,33 @@ export function registerIpc(ctx: AppContext) {
       store.upsertHost(host);
       created.set(c.alias, host);
     }
+    // Rebuild the full ProxyJump chain: `ProxyJump a,b` means client → a → b →
+    // target, so target jumps through b, and b jumps through a. Each hop that
+    // isn't a host we know is reported so the user can add it, not dropped silently.
+    const unresolved = new Set<string>();
+    const resolveHop = (name: string): string | undefined =>
+      created.get(name)?.id ?? store.findHostByAlias(slugify(name))?.id;
     for (const c of candidates) {
       const host = created.get(c.alias);
-      if (!host || !c.proxyJump) continue;
-      const hops = c.proxyJump.split(',').map((s) => s.trim().replace(/^.*@/, '').replace(/:\d+$/, ''));
-      const last = hops[hops.length - 1];
-      const jump = created.get(last) ?? store.findHostByAlias(slugify(last));
-      if (jump && jump.id !== host.id) store.patchHost(host.id, { jumpHostId: jump.id });
+      if (!host || !c.proxyJump || c.proxyJump === 'none') continue;
+      const hops = c.proxyJump
+        .split(',')
+        .map((s) => s.trim().replace(/^.*@/, '').replace(/:\d+$/, ''))
+        .filter(Boolean);
+      if (!hops.length) continue;
+      const chain = [...hops, c.alias];
+      for (let i = chain.length - 1; i >= 1; i--) {
+        const childId = chain[i] === c.alias ? host.id : resolveHop(chain[i]);
+        if (!childId) continue;
+        const parentId = resolveHop(chain[i - 1]);
+        if (!parentId) {
+          unresolved.add(chain[i - 1]);
+          continue;
+        }
+        if (parentId !== childId) store.patchHost(childId, { jumpHostId: parentId });
+      }
     }
-    return { imported: created.size, keysImported, skipped };
+    return { imported: created.size, keysImported, skipped, unresolvedJumps: [...unresolved] };
   });
 
   // Keys --------------------------------------------------------------------------
@@ -564,6 +594,12 @@ export function registerIpc(ctx: AppContext) {
     await vault.create(password || undefined);
   });
   handle('vault:unlock', (password: string) => vault.unlockWithPassword(String(password ?? '')));
+  handle('vault:retryKeychain', () => vault.retryKeychain());
+  handle('vault:reset', async (password?: string) => {
+    // Only allowed when the vault cannot be opened from disk (no password wrap).
+    if (!vault.status().unrecoverable) throw new Error('The vault can still be unlocked; reset is not available.');
+    await vault.reset(password || undefined);
+  });
   handle('vault:setPassword', async (current: string | null, next: string | null) => {
     if (vault.status().passwordWrap) {
       if (!current || !(await vault.verifyPassword(current))) throw new Error('The current master password is incorrect.');

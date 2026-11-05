@@ -31,10 +31,14 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     const r = await attempt(() => api().hosts.importSshConfig([...selected]), t('Import failed'));
     setBusy(false);
     if (!r) return;
+    const notes = [
+      r.keysImported ? t('{n} key(s) copied into the vault', { n: r.keysImported }) : '',
+      r.unresolvedJumps.length ? t('Jump host(s) not imported: {list}', { list: r.unresolvedJumps.join(', ') }) : '',
+    ].filter(Boolean);
     toast({
-      kind: 'success',
+      kind: r.unresolvedJumps.length ? 'info' : 'success',
       title: t('Imported {n} host(s)', { n: r.imported }),
-      message: r.keysImported ? t('{n} key(s) copied into the vault', { n: r.keysImported }) : undefined,
+      message: notes.join(' · ') || undefined,
     });
     onClose();
   };

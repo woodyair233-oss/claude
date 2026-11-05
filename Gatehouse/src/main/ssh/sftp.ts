@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fsp } from 'node:fs';
-import { basename, join as localJoin } from 'node:path';
+import { basename, join as localJoin, resolve as localResolve, sep as localSep } from 'node:path';
 import { posix } from 'node:path';
 import type { FileEntryWithStats, SFTPWrapper, Stats } from 'ssh2';
 import type { SftpEntry, TransferInfo } from '../../shared/types';
@@ -317,6 +317,19 @@ export class SftpManager extends EventEmitter {
   }
 
   async download(hostId: string, remotePaths: string[], localDir: string) {
+    const root = localResolve(localDir);
+    // A malicious or buggy server controls the names returned by readdir; join
+    // them defensively so a name like "../../x" cannot escape the chosen folder.
+    const safeJoin = (base: string, name: string): string => {
+      if (!name || name === '.' || name === '..' || name.includes('/') || name.includes('\\') || name.includes('\0')) {
+        throw new Error(`Refusing unsafe filename from server: ${JSON.stringify(name).slice(0, 80)}`);
+      }
+      const full = localResolve(base, name);
+      if (full !== root && !full.startsWith(root + localSep)) {
+        throw new Error('Refusing to write a downloaded file outside the chosen folder.');
+      }
+      return full;
+    };
     await this.with(hostId, 'user', async (sftp) => {
       const jobs: { local: string; remote: string; size: number }[] = [];
       const walk = async (remote: string, local: string) => {
@@ -324,13 +337,13 @@ export class SftpManager extends EventEmitter {
         if (st.isDirectory()) {
           await fsp.mkdir(local, { recursive: true });
           const children = await p<FileEntryWithStats[]>((cb) => sftp.readdir(remote, cb));
-          for (const c of children) await walk(posix.join(remote, c.filename), localJoin(local, c.filename));
+          for (const c of children) await walk(posix.join(remote, c.filename), safeJoin(local, c.filename));
         } else {
           jobs.push({ local, remote, size: st.size });
         }
       };
-      await fsp.mkdir(localDir, { recursive: true });
-      for (const rp of remotePaths) await walk(rp, localJoin(localDir, posix.basename(rp)));
+      await fsp.mkdir(root, { recursive: true });
+      for (const rp of remotePaths) await walk(rp, safeJoin(root, posix.basename(rp)));
       const states = jobs.map((j) => ({ j, t: this.newTransfer(hostId, 'download', j.local, j.remote, j.size) }));
       for (const { j, t } of states) {
         if (t.info.state === 'cancelled') continue;

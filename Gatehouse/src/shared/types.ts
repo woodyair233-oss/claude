@@ -509,6 +509,7 @@ export interface VaultStatusInfo {
   backend: 'keychain' | 'os' | 'basic' | 'unavailable';
   keychainWrap: boolean;
   passwordWrap: boolean;
+  unrecoverable: boolean;
 }
 
 export type MenuCommand =

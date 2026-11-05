@@ -65,6 +65,8 @@ export function parseSocksRequest(buf: Buffer): { host: string; port: number; le
 
 export class ForwardManager extends EventEmitter {
   private running = new Map<string, Running>();
+  /** Forwards whose start() is in progress (before `running` is set), to reject double-starts. */
+  private starting = new Set<string>();
   private status = new Map<string, ForwardStatus>();
   private emitTimer?: NodeJS.Timeout;
 
@@ -101,7 +103,11 @@ export class ForwardManager extends EventEmitter {
   }
 
   async start(forward: PortForward) {
-    if (this.running.has(forward.id)) return;
+    // Guard against overlapping start() calls: `running` is only set at the end,
+    // so without a separate in-progress set the second call would bind the same
+    // port, hit EADDRINUSE and wrongly mark the live tunnel as errored.
+    if (this.running.has(forward.id) || this.starting.has(forward.id)) return;
+    this.starting.add(forward.id);
     this.setStatus(forward.id, { state: 'starting', error: undefined, connections: 0, bytesIn: 0, bytesOut: 0 });
     let lease: Lease | undefined;
     try {
@@ -154,6 +160,8 @@ export class ForwardManager extends EventEmitter {
       const msg = e.code === 'EADDRINUSE' ? `Port ${forward.bindPort} is already in use.` : e.code === 'EACCES' ? `No permission to listen on port ${forward.bindPort}.` : e.message;
       this.setStatus(forward.id, { state: 'error', error: msg });
       throw new Error(msg);
+    } finally {
+      this.starting.delete(forward.id);
     }
   }
 

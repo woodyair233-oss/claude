@@ -153,6 +153,13 @@ export function App() {
     document.documentElement.classList.add(`platform-${window.gatehouse.platform}`);
   }, []);
 
+  // When the app locks, drop focus so no control underneath the lock screen
+  // keeps it (the subtree is also made inert below).
+  const locked = !!snap?.uiLocked;
+  useEffect(() => {
+    if (locked) (document.activeElement as HTMLElement | null)?.blur?.();
+  }, [locked]);
+
   if (!snap) {
     return (
       <div className="boot">
@@ -165,21 +172,23 @@ export function App() {
 
   return (
     <div className="app" key={lang}>
-      <Sidebar />
-      <main className="main">
-        <Main />
-      </main>
-      {editorOpen && <HostEditor key={editorKey} />}
-      {importing && <ImportDialog onClose={() => setImporting(false)} />}
-      <CommandPalette />
-      <ApprovalModal />
-      <PromptHost />
-      <HostPicker />
-      <PasteGuard />
-      <DialogHost />
-      <Welcome />
-      <Toasts />
-      {snap.uiLocked && <LockScreen />}
+      <div className="app-inner" style={{ display: 'contents' }} inert={locked ? true : undefined}>
+        <Sidebar />
+        <main className="main">
+          <Main />
+        </main>
+        {editorOpen && <HostEditor key={editorKey} />}
+        {importing && <ImportDialog onClose={() => setImporting(false)} />}
+        <CommandPalette />
+        <ApprovalModal />
+        <PromptHost />
+        <HostPicker />
+        <PasteGuard />
+        <DialogHost />
+        <Welcome />
+        <Toasts />
+      </div>
+      {locked && <LockScreen />}
     </div>
   );
 }

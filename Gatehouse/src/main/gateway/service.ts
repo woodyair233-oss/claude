@@ -72,6 +72,8 @@ export class GatewayService extends EventEmitter {
   readonly audit: AuditLog;
   private sessions = new Map<string, SessionRecord>();
   private activity: ActivityItem[] = [];
+  /** In-flight items by id, so long-running requests still finalise after display eviction. */
+  private inflight = new Map<string, ActivityItem>();
   private running = new Map<string, AbortController>();
   private callTimes: number[] = [];
   private recentEntries: AuditEntry[] = [];
@@ -267,6 +269,7 @@ export class GatewayService extends EventEmitter {
 
   begin(fields: Omit<AuditEntry, 'id' | 'ts' | 'outcome'>, status: ActivityItem['status'] = 'running'): ActivityItem {
     const item: ActivityItem = { ...fields, id: randomUUID(), ts: Date.now(), outcome: 'auto', status };
+    this.inflight.set(item.id, item);
     this.activity.unshift(item);
     if (this.activity.length > MAX_ACTIVITY) this.activity.length = MAX_ACTIVITY;
     const s = this.sessions.get(fields.sessionId);
@@ -276,7 +279,9 @@ export class GatewayService extends EventEmitter {
   }
 
   update(id: string, patch: Partial<ActivityItem>) {
-    const item = this.activity.find((a) => a.id === id);
+    // Prefer the in-flight map: a long-running item may have been evicted from
+    // the capped display list while still pending.
+    const item = this.inflight.get(id) ?? this.activity.find((a) => a.id === id);
     if (!item) return;
     Object.assign(item, patch);
     this.emit('activity', item);
@@ -295,8 +300,9 @@ export class GatewayService extends EventEmitter {
   /** Finalises an activity item and appends it to the audit log. */
   end(id: string, patch: Partial<AuditEntry> & { outcome: AuditOutcome }): AuditEntry | undefined {
     this.running.delete(id);
-    const item = this.activity.find((a) => a.id === id);
+    const item = this.inflight.get(id) ?? this.activity.find((a) => a.id === id);
     if (!item) return undefined;
+    this.inflight.delete(id);
     Object.assign(item, patch, { status: 'done' });
     const { status: _s, ...entry } = item;
     if (!this.settings.ai.storeOutputInAudit) delete entry.outputPreview;

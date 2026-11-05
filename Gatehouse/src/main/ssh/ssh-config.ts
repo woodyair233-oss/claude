@@ -44,7 +44,7 @@ function valueText(v: unknown): string {
   return String(v ?? '');
 }
 
-function readSections(file: string, depth = 0, sections: Section[] = [], seen = new Set<string>()): Section[] {
+function readSections(file: string, depth = 0, sections: Section[] = [], seen = new Set<string>(), inheritInto?: Section): Section[] {
   if (depth > 5 || seen.has(file)) return sections;
   seen.add(file);
   let text: string;
@@ -54,22 +54,25 @@ function readSections(file: string, depth = 0, sections: Section[] = [], seen = 
     return sections;
   }
   const parsed = SSHConfig.parse(text) as unknown as { param: string; value: unknown; config?: unknown[] }[];
-  let current: Section = { patterns: ['*'], params: {} };
-  const global = current;
-  sections.push(global);
-  const handleInclude = (value: string) => {
+  // An Include is a textual insertion: leading params of an included file belong
+  // to the section that was active at the Include point (passed as inheritInto),
+  // not to a fresh global "*" — otherwise a Host-scoped Include leaks its
+  // Port/User onto every host.
+  let current: Section = inheritInto ?? { patterns: ['*'], params: {} };
+  if (!inheritInto) sections.push(current);
+  const handleInclude = (value: string, into: Section) => {
     for (const part of value.split(/\s+/).filter(Boolean)) {
       const full = isAbsolute(expandHome(part)) ? expandHome(part) : resolve(join(homedir(), '.ssh'), part);
       if (full.includes('*')) {
         try {
           const dir = dirname(full);
           const rx = globToRegex(full.slice(dir.length + 1));
-          for (const f of readdirSync(dir).sort()) if (rx.test(f)) readSections(join(dir, f), depth + 1, sections, seen);
+          for (const f of readdirSync(dir).sort()) if (rx.test(f)) readSections(join(dir, f), depth + 1, sections, seen, into);
         } catch {
           /* ignore */
         }
       } else {
-        readSections(full, depth + 1, sections, seen);
+        readSections(full, depth + 1, sections, seen, into);
       }
     }
   };
@@ -78,7 +81,7 @@ function readSections(file: string, depth = 0, sections: Section[] = [], seen = 
     if (!param) continue;
     const value = valueText(line.value);
     if (param === 'include') {
-      handleInclude(value);
+      handleInclude(value, current);
       continue;
     }
     if (param === 'host' || param === 'match') {
@@ -88,7 +91,7 @@ function readSections(file: string, depth = 0, sections: Section[] = [], seen = 
       for (const c of children) {
         const cp = String(c.param ?? '').toLowerCase();
         const cv = valueText(c.value);
-        if (cp === 'include') handleInclude(cv);
+        if (cp === 'include') handleInclude(cv, current);
         else if (WANTED.includes(cp) && !(cp in current.params)) current.params[cp] = cv;
       }
       continue;

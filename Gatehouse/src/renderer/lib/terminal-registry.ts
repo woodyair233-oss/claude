@@ -58,13 +58,6 @@ function options(s: TerminalSettings) {
   } as const;
 }
 
-async function paste(id: string, term: Terminal) {
-  const text = await api().app.clipboardRead();
-  if (!text) return;
-  if (text.includes('\n') && pasteGuard && !(await pasteGuard(text))) return;
-  term.paste(text);
-  void id;
-}
 
 export function ensureTerminal(id: string, settings: TerminalSettings): Entry {
   current = settings;
@@ -116,8 +109,9 @@ export function ensureTerminal(id: string, settings: TerminalSettings): Entry {
       return false;
     }
     if (k === 'v') {
-      void paste(id, term);
-      return false;
+      // Let the browser's paste event fire; the capture-phase listener below
+      // runs the multi-line guard and performs the paste exactly once.
+      return true;
     }
     if (k === 'a') {
       term.selectAll();
@@ -126,6 +120,27 @@ export function ensureTerminal(id: string, settings: TerminalSettings): Entry {
     // Let the app handle the remaining shortcuts (tabs, palette, search…).
     return false;
   });
+
+  // Intercept every paste (keyboard, Edit menu, right-click) before xterm's own
+  // textarea handler, so the multi-line guard runs and the text is never pasted
+  // twice. preventDefault stops the native paste from also reaching the pty.
+  el.addEventListener(
+    'paste',
+    (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const text = e.clipboardData?.getData('text') ?? '';
+      if (!text) return;
+      if (text.includes('\n') && pasteGuard) {
+        void pasteGuard(text).then((ok) => {
+          if (ok) term.paste(text);
+        });
+      } else {
+        term.paste(text);
+      }
+    },
+    true,
+  );
 
   const entry: Entry = { term, fit, search, el, opened: false };
   entries.set(id, entry);

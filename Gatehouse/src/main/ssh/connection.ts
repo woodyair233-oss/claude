@@ -115,6 +115,15 @@ export interface Lease {
   release: () => void;
 }
 
+/** Auth methods for a connection, plus hooks run after it succeeds or fails. */
+interface AuthPlan {
+  methods: AnyAuthMethod[];
+  /** Run once the connection is ready (e.g. persist a password that worked). */
+  commit?: () => Promise<void>;
+  /** Run if the connection fails before ready (e.g. clear a stale saved password). */
+  rollback?: () => Promise<void>;
+}
+
 export interface ConnectionDeps {
   store: Store;
   vault: Vault;
@@ -208,10 +217,22 @@ export class ConnectionManager extends EventEmitter {
     if (chain.includes(host.id)) throw new Error('Jump host loop detected.');
     if (chain.length > MAX_JUMP_DEPTH) throw new Error('Too many chained jump hosts.');
 
+    // Build auth first: a cancelled prompt, locked vault or missing key must not
+    // leak the jump-host lease and its forwarded channel.
+    const plan = await this.buildAuth(host, initiatedBy);
+    if (pooled.closed) throw new Error('Connection was cancelled.');
+    const authQueue = [...plan.methods];
+    let triedInteractive = host.auth === 'interactive';
+
     let sock: NodeJS.ReadableStream | undefined;
     if (host.jumpHostId) {
       const jump = await this.acquire(host.jumpHostId, initiatedBy, [...chain, host.id]);
       pooled.releaseJump = jump.release;
+      if (pooled.closed) {
+        jump.release();
+        pooled.releaseJump = undefined;
+        throw new Error('Connection was cancelled.');
+      }
       try {
         sock = await new Promise<NodeJS.ReadableStream>((resolve, reject) =>
           jump.client.forwardOut('127.0.0.1', 0, host.hostname, host.port, (err, stream) => {
@@ -231,14 +252,13 @@ export class ConnectionManager extends EventEmitter {
       }
     }
 
-    const authQueue = await this.buildAuth(host, initiatedBy);
-    let triedInteractive = host.auth === 'interactive';
-
     const config: ConnectConfig = {
       host: host.hostname,
       port: host.port,
       username: host.username,
-      readyTimeout: 25_000,
+      // Generous: the key-change dialog (type-the-alias) and keyboard-interactive
+      // 2FA happen during the handshake and can legitimately take a while.
+      readyTimeout: 180_000,
       keepaliveInterval: host.keepAliveSec > 0 ? host.keepAliveSec * 1000 : 0,
       keepaliveCountMax: 4,
       algorithms: algorithms(host.legacyAlgorithms),
@@ -261,8 +281,19 @@ export class ConnectionManager extends EventEmitter {
       let settled = false;
       client.once('ready', () => {
         settled = true;
+        if (pooled.closed) {
+          try {
+            client.end();
+          } catch {
+            /* ignore */
+          }
+          reject(new Error('Connection was cancelled.'));
+          return;
+        }
         pooled.connectedAt = Date.now();
         this.deps.store.patchHost(host.id, { lastConnectedAt: Date.now() });
+        // Persist a freshly-entered password only now that it has actually worked.
+        void plan.commit?.().catch(() => undefined);
         this.emit('change');
         resolve(client);
       });
@@ -271,6 +302,9 @@ export class ConnectionManager extends EventEmitter {
           settled = true;
           pooled.closed = true;
           pooled.releaseJump?.();
+          // A saved password that just failed is stale: clear it so the next
+          // attempt prompts again instead of silently reusing it.
+          void plan.rollback?.().catch(() => undefined);
           reject(new Error(friendlySshError(err)));
         } else {
           this.emit('connection-error', host.id, friendlySshError(err));
@@ -305,30 +339,43 @@ export class ConnectionManager extends EventEmitter {
     return existsSync(onePassword) ? onePassword : undefined;
   }
 
-  private async buildAuth(host: Host, initiatedBy: Initiator): Promise<AnyAuthMethod[]> {
+  private async buildAuth(host: Host, initiatedBy: Initiator): Promise<AuthPlan> {
     const { vault, store, prompts } = this.deps;
     const username = host.username;
     switch (host.auth) {
       case 'agent': {
         const agent = this.agentSocket();
         if (!agent) throw new Error('No SSH agent found (SSH_AUTH_SOCK is not set).');
-        return [{ type: 'agent' as const, username, agent }];
+        return { methods: [{ type: 'agent' as const, username, agent }] };
       }
       case 'password': {
-        let password = vault.unlocked ? vault.getHostPassword(host.id) : undefined;
-        if (password === undefined) {
-          const res = await prompts.ask({ kind: 'password', hostAlias: host.alias, username, host: host.hostname, initiatedBy });
-          if (!res || !('value' in res)) throw new Error('Password entry was cancelled.');
-          password = res.value;
-          if (res.save && vault.unlocked) {
+        const saved = vault.unlocked ? vault.getHostPassword(host.id) : undefined;
+        if (saved !== undefined) {
+          // Using a stored password: if it fails, clear it so we prompt next time.
+          return {
+            methods: [{ type: 'password' as const, username, password: saved }],
+            rollback: async () => {
+              if (!vault.unlocked) return;
+              await vault.setHostPassword(host.id, null);
+              store.patchHost(host.id, { savePassword: false });
+            },
+          };
+        }
+        const res = await prompts.ask({ kind: 'password', hostAlias: host.alias, username, host: host.hostname, initiatedBy });
+        if (!res || !('value' in res)) throw new Error('Password entry was cancelled.');
+        const password = res.value;
+        const plan: AuthPlan = { methods: [{ type: 'password' as const, username, password }] };
+        if (res.save && vault.unlocked) {
+          // Persist only after the login succeeds (connect() calls commit on 'ready').
+          plan.commit = async () => {
             await vault.setHostPassword(host.id, password);
             store.patchHost(host.id, { savePassword: true });
-          }
+          };
         }
-        return [{ type: 'password' as const, username, password }];
+        return plan;
       }
       case 'interactive':
-        return [this.keyboardInteractive(host, initiatedBy)];
+        return { methods: [this.keyboardInteractive(host, initiatedBy)] };
       case 'key':
       default: {
         if (!host.keyId) throw new Error(`No SSH key is selected for "${host.alias}".`);
@@ -354,7 +401,7 @@ export class ConnectionManager extends EventEmitter {
             }
           }
         }
-        return [{ type: 'publickey' as const, username, key: pem, passphrase }];
+        return { methods: [{ type: 'publickey' as const, username, key: pem, passphrase }] };
       }
     }
   }
