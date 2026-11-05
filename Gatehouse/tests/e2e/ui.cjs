@@ -200,6 +200,8 @@ async function main() {
     await nav(win, 'Overview');
     await shot(win, '25-gateway-paused');
     await win.locator('.kill-switch .switch').click();
+    // Wait for AI access to actually resume before relying on an approval below.
+    await win.waitForSelector('.kill-switch.paused', { state: 'detached' });
 
     // Dark mode
     await win.evaluate(() => window.gatehouse.settings.update({ theme: 'dark' }));
@@ -211,9 +213,13 @@ async function main() {
     await nav(win, 'Terminals');
     await shot(win, '32-dark-terminal');
     const darkPending = client.callTool({ name: 'run_command', arguments: { host: 'prod-web', command: 'git -C /srv/site reset --hard origin/main', reason: 'Discard the hotfix and redeploy main' } });
-    await win.waitForSelector('.approval-modal', { timeout: 15000 }).catch(() => undefined);
+    // The modal must appear (danger command on a trusted host); fail loudly if not,
+    // so the screenshot never silently captures the view underneath.
+    await win.waitForSelector('.approval-modal.is-danger, .approval-modal:has(.is-danger)', { timeout: 15000 });
+    await win.waitForTimeout(150);
     await shot(win, '33-dark-approval');
-    if (await win.locator('.approval-modal').count()) await win.locator('.approval-modal').getByRole('button', { name: /^Deny$/ }).click();
+    check('dark high-risk approval modal shown', await win.locator('.approval-modal').count() > 0);
+    await win.locator('.approval-modal').getByRole('button', { name: /^Deny$/ }).click();
     await darkPending.catch(() => undefined);
     await nav(win, 'Activity');
     await shot(win, '34-dark-activity');
