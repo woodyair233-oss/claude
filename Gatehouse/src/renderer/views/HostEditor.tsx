@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Bot, Eye, EyeOff, FlaskConical, Hand, KeyRound, Lock, Plug, Server, Settings2, ShieldCheck, Sparkles, Trash2, Zap } from 'lucide-react';
 import type { AiMode, AuthMethod, Host, HostColor, HostDraft } from '@shared/types';
 import { HOST_COLORS } from '@shared/types';
@@ -116,12 +116,28 @@ export function HostEditor() {
   const hasSavedPassword = !!draft.id && snap.savedPasswords.includes(draft.id);
   const groups = [...new Set(snap.hosts.map((h) => h.group).filter(Boolean))];
 
+  // Never derive the alias from the hostname/IP: that would leak exactly what
+  // Claude is not supposed to see. Fall back to a neutral host-N alias.
+  const takenAliases = new Set(snap.hosts.filter((h) => h.id !== draft.id).map((h) => h.alias));
+  const neutralAlias = (() => {
+    for (let i = 1; i < 10_000; i++) if (!takenAliases.has(`host-${i}`)) return `host-${i}`;
+    return 'host';
+  })();
+  useEffect(() => {
+    if (!existing && !draft.alias && !aliasTouched) set('alias', neutralAlias);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const updateName = (name: string) => {
-    setDraft((d) => ({ ...d, name, alias: aliasTouched ? d.alias : slugify(name || d.hostname) }));
+    setDraft((d) => ({ ...d, name, alias: aliasTouched ? d.alias : slugify(name) || neutralAlias }));
   };
   const updateHostname = (hostname: string) => {
-    setDraft((d) => ({ ...d, hostname, alias: aliasTouched || d.name ? d.alias : slugify(hostname) }));
+    setDraft((d) => ({ ...d, hostname, alias: aliasTouched || d.alias ? d.alias : neutralAlias }));
   };
+
+  const hostCore = slugify(draft.hostname.replace(/:\d+$/, ''));
+  const aliasLeaksHost =
+    !aliasError && draft.alias.length >= 3 && hostCore.length >= 3 && (draft.alias.includes(hostCore) || hostCore.includes(draft.alias));
 
   const save = async (andTest = false) => {
     if (!valid) {
@@ -229,6 +245,11 @@ export function HostEditor() {
               placeholder="lab-gpu"
               invalid={!!aliasError}
             />
+            {aliasLeaksHost && (
+              <div className="field-warn">
+                <ShieldCheck size={12} /> {t('This alias looks like the hostname or IP — Claude would see it. Consider a neutral name.')}
+              </div>
+            )}
           </Field>
           <div className="field-row">
             <Field label={t('Group')}>

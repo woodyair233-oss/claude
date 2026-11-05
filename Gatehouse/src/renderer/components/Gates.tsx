@@ -63,18 +63,54 @@ export function VaultGate() {
   const [pw2, setPw2] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const ref = useAutofocus<HTMLInputElement>();
   const creating = vault.state === 'uninitialized';
 
+  // Locked with no password wrap: the Keychain copy of the key could not be
+  // read and there is no password to fall back on. Offer Retry / Reset instead
+  // of a password prompt that cannot succeed.
+  if (vault.unrecoverable && !resetting) {
+    const retry = async () => {
+      setError('');
+      setBusy(true);
+      try {
+        if (!(await api().vault.retryKeychain())) setError(t('The system keychain still could not be read. You can retry, or reset the vault.'));
+      } finally {
+        setBusy(false);
+      }
+    };
+    return (
+      <div className="lock-screen drag">
+        <div className="lock-card no-drag">
+          <Logo size={60} />
+          <h2>{t('Vault could not be unlocked')}</h2>
+          <p className="muted">
+            {t('Gatehouse could not read the vault key from the system keychain (for example after an app update, or if access was denied). Retry, or reset the vault — resetting creates a new, empty vault and loses saved passwords and keys (your hosts stay).')}
+          </p>
+          <Button variant="primary" size="lg" block loading={busy} style={{ marginTop: 12 }} onClick={() => void retry()}>
+            {t('Retry keychain')}
+          </Button>
+          <Button variant="ghost" size="lg" block style={{ marginTop: 8 }} onClick={() => { setError(''); setResetting(true); }}>
+            {t('Reset vault…')}
+          </Button>
+          {error && <div className="error-text" style={{ marginTop: 10 }}>{error}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  const createLike = creating || resetting;
   const submit = async () => {
     setError('');
-    if (creating) {
+    if (createLike) {
       if (pw.length < 8) return setError(t('Use at least 8 characters.'));
       if (pw !== pw2) return setError(t('The passwords do not match'));
     }
     setBusy(true);
     try {
-      if (creating) await api().vault.create(pw);
+      if (resetting) await api().vault.reset(pw);
+      else if (creating) await api().vault.create(pw);
       else if (!(await api().vault.unlock(pw))) setError(t('Incorrect password.'));
     } catch (err) {
       setError((err as Error).message);
@@ -87,17 +123,24 @@ export function VaultGate() {
     <div className="lock-screen drag">
       <div className="lock-card no-drag">
         <Logo size={60} />
-        <h2>{creating ? t('Create a master password') : t('Unlock your vault')}</h2>
+        <h2>{resetting ? t('Reset the vault') : creating ? t('Create a master password') : t('Unlock your vault')}</h2>
         <p className="muted">
-          {creating
-            ? t('The system keychain is not available, so Gatehouse protects your passwords and keys with a master password. It cannot be recovered if you forget it.')
-            : t('Enter your master password to decrypt saved passwords and keys.')}
+          {resetting
+            ? t('Choose a new master password. The old vault and any saved passwords and keys are discarded.')
+            : creating
+              ? t('The system keychain is not available, so Gatehouse protects your passwords and keys with a master password. It cannot be recovered if you forget it.')
+              : t('Enter your master password to decrypt saved passwords and keys.')}
         </p>
-        <Input ref={ref} type="password" placeholder={t('Master password')} value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !creating && void submit()} />
-        {creating && <Input type="password" placeholder={t('Repeat password')} value={pw2} style={{ marginTop: 8 }} onChange={(e) => setPw2(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void submit()} />}
+        <Input ref={ref} type="password" placeholder={t('Master password')} value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !createLike && void submit()} />
+        {createLike && <Input type="password" placeholder={t('Repeat password')} value={pw2} style={{ marginTop: 8 }} onChange={(e) => setPw2(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void submit()} />}
         <Button variant="primary" size="lg" block loading={busy} style={{ marginTop: 12 }} icon={<Lock size={15} />} onClick={() => void submit()}>
-          {creating ? t('Create vault') : t('Unlock')}
+          {resetting ? t('Reset vault') : creating ? t('Create vault') : t('Unlock')}
         </Button>
+        {resetting && (
+          <Button variant="ghost" size="lg" block style={{ marginTop: 8 }} onClick={() => { setError(''); setResetting(false); }}>
+            {t('Cancel')}
+          </Button>
+        )}
         {error && <div className="error-text" style={{ marginTop: 10 }}>{error}</div>}
       </div>
     </div>

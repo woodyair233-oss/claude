@@ -15,14 +15,14 @@
 
   --text: #1d1d1f;
   --text-2: #50505a;
-  --text-3: #8a8a93;
-  --text-4: #b4b4bc;
+  --text-3: #6b6b74; /* AA on white (5.3:1) and on the sidebar (4.5:1) */
+  --text-4: #9a9aa3; /* placeholders / disabled only */
   --border: rgba(0, 0, 0, 0.085);
   --border-strong: rgba(0, 0, 0, 0.15);
   --separator: rgba(0, 0, 0, 0.06);
   --hover: rgba(0, 0, 0, 0.04);
   --active: rgba(0, 0, 0, 0.07);
-  --focus-ring: color-mix(in srgb, var(--accent) 45%, transparent);
+  --focus-ring: var(--accent);
 
   --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
@@ -31,16 +31,17 @@
 
   --accent: #0a7cff;
   --accent-hover: #0068e0;
+  --accent-fill: #0068e0; /* filled buttons: white text reaches AA (5.2:1) */
   --accent-text: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 11%, transparent);
   --accent-softer: color-mix(in srgb, var(--accent) 6%, transparent);
   --accent-fg: color-mix(in srgb, var(--accent) 88%, #000);
 
   --green: #28b04f;
-  --green-fg: #1a8a3a;
+  --green-fg: #157a32; /* AA for small badge text (4.8:1) */
   --green-soft: rgba(40, 176, 79, 0.12);
   --amber: #f59a0b;
-  --amber-fg: #b26300;
+  --amber-fg: #9a5400; /* AA for small badge text (5.2:1) */
   --amber-soft: rgba(245, 154, 11, 0.14);
   --red: #f0443a;
   --red-fg: #d0251c;
@@ -82,8 +83,8 @@
 
     --text: #f3f3f5;
     --text-2: #b6b6be;
-    --text-3: #80808a;
-    --text-4: #5a5a63;
+    --text-3: #95959e; /* AA on background (5.7:1) and on cards (4.8:1) */
+    --text-4: #6e6e78;
     --border: rgba(255, 255, 255, 0.085);
     --border-strong: rgba(255, 255, 255, 0.15);
     --separator: rgba(255, 255, 255, 0.06);
@@ -96,6 +97,7 @@
     --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
 
     --accent-fg: color-mix(in srgb, var(--accent) 70%, #fff);
+    --accent-fill: #1670e0; /* filled buttons in dark: white text reaches AA (4.7:1) */
     --green: #32d15a;
     --green-fg: #4ade80;
     --green-soft: rgba(50, 209, 90, 0.14);

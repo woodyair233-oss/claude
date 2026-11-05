@@ -28,11 +28,13 @@ import { t } from '../lib/i18n';
 import { HOST_COLOR_HEX } from '../lib/themes';
 import { Badge } from './ui';
 
-export const MODE_META: Record<AiMode, { label: string; short: string; tone: 'outline' | 'blue' | 'amber' | 'violet'; icon: ReactNode; desc: string }> = {
-  off: { label: 'Off', short: 'Off', tone: 'outline', icon: <EyeOff size={12} />, desc: 'Hidden from AI. Claude cannot see or use this host.' },
-  'read-only': { label: 'Read-only', short: 'Read-only', tone: 'blue', icon: <Eye size={12} />, desc: 'Only recognised read-only commands run, automatically. Anything else is refused.' },
-  ask: { label: 'Ask', short: 'Ask', tone: 'amber', icon: <Hand size={12} />, desc: 'Read-only commands run automatically; everything else waits for your approval.' },
-  trusted: { label: 'Trusted', short: 'Trusted', tone: 'violet', icon: <Zap size={12} />, desc: 'Commands run automatically, except high-risk ones, which still need your approval.' },
+// A risk ramp, least to most permissive: Off (gray) → Read-only (green) → Ask
+// (blue) → Trusted (amber). Violet is reserved for Claude's own identity.
+export const MODE_META: Record<AiMode, { label: string; short: string; tone: 'outline' | 'green' | 'blue' | 'amber'; icon: ReactNode; desc: string }> = {
+  off: { label: 'Off', short: 'Off', tone: 'outline', icon: <EyeOff size={12} />, desc: 'Hidden from Claude. It cannot see or use this host.' },
+  'read-only': { label: 'Read-only', short: 'Read-only', tone: 'green', icon: <Eye size={12} />, desc: 'Only recognised read-only commands run, automatically. Anything else is refused.' },
+  ask: { label: 'Ask', short: 'Ask', tone: 'blue', icon: <Hand size={12} />, desc: 'Read-only commands run automatically; everything else waits for your approval.' },
+  trusted: { label: 'Trusted', short: 'Trusted', tone: 'amber', icon: <Zap size={12} />, desc: 'Commands run automatically, except high-risk ones, which still need your approval.' },
 };
 
 export function ModeBadge({ mode, small }: { mode: AiMode; small?: boolean }) {
