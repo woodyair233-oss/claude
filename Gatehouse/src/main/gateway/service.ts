@@ -40,6 +40,27 @@ interface SessionRecord extends McpSessionInfo {
   close: () => void;
 }
 
+const KNOWN_CLIENTS: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  'claude-ai': 'Claude Desktop',
+  'claude-desktop': 'Claude Desktop',
+  claude: 'Claude',
+  cursor: 'Cursor',
+  'cursor-vscode': 'Cursor',
+  vscode: 'VS Code',
+  'visual-studio-code': 'VS Code',
+  windsurf: 'Windsurf',
+  zed: 'Zed',
+  'gatehouse-self-test': 'Gatehouse self-test',
+};
+
+export function prettyClientName(name: string): string {
+  const key = name.trim().toLowerCase().replace(/\s+/g, '-');
+  if (KNOWN_CLIENTS[key]) return KNOWN_CLIENTS[key];
+  if (/^[a-z0-9-]+$/.test(name)) return name.split('-').map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+  return name.slice(0, 60);
+}
+
 function dayKey(ts: number) {
   const d = new Date(ts);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -92,6 +113,7 @@ export class GatewayService extends EventEmitter {
   updateSession(id: string, patch: Partial<McpSessionInfo>) {
     const s = this.sessions.get(id);
     if (!s) return;
+    if (patch.clientName) patch = { ...patch, clientName: prettyClientName(patch.clientName) };
     let changed = false;
     for (const [k, v] of Object.entries(patch) as [keyof McpSessionInfo, never][]) {
       if (v !== undefined && s[k] !== v) {

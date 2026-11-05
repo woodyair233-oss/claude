@@ -473,22 +473,36 @@ function awkRule(args: string[]): RuleResult {
   return true;
 }
 
-function gitRule(args: string[]): RuleResult {
+const GIT_SAFE_GLOBALS = new Set(['--no-pager', '-P', '--no-optional-locks', '--literal-pathspecs', '--no-replace-objects']);
+const GIT_VALUE_GLOBALS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--super-prefix', '--config-env']);
+
+/** Splits `git [global options] <subcommand> [args]`, reporting unsafe global options. */
+export function gitSplit(args: string[]): { sub?: string; rest: string[]; unsafeGlobal?: string } {
   let i = 0;
+  let unsafeGlobal: string | undefined;
   while (i < args.length && args[i].startsWith('-')) {
     const a = args[i];
+    const name = a.includes('=') ? a.slice(0, a.indexOf('=')) : a;
     if (a === '-C') {
       i += 2;
       continue;
     }
-    if (a === '--no-pager' || a === '-P' || a === '--no-optional-locks' || a === '--literal-pathspecs') {
+    if (GIT_SAFE_GLOBALS.has(a)) {
       i++;
       continue;
     }
-    return modifying(`git ${a}`);
+    unsafeGlobal ??= a;
+    if (GIT_VALUE_GLOBALS.has(name) && !a.includes('=')) i += 2;
+    else i++;
   }
-  const sub = args[i];
-  const rest = args.slice(i + 1);
+  return { sub: args[i], rest: args.slice(i + 1), unsafeGlobal };
+}
+
+function gitRule(args: string[]): RuleResult {
+  const split = gitSplit(args);
+  if (split.unsafeGlobal) return modifying(`git ${split.unsafeGlobal}`);
+  const sub = split.sub;
+  const rest = split.rest;
   if (sub === undefined) return true;
   if (hasLong(rest, '--output', '--ext-diff', '--open-files-in-pager') || rest.includes('-O')) return modifying(`git ${sub} --output`);
   if (GIT_READ.has(sub)) return true;
@@ -920,8 +934,7 @@ function segmentDanger(ctx: Ctx, prog: string, args: string[]) {
       if (['uninstall', 'delete', 'rollback', 'del'].includes(pos[0] ?? '')) push(ctx, 'container-destroy', `helm ${pos[0]}`);
       break;
     case 'git': {
-      const sub = args.find((a) => !a.startsWith('-')) ?? '';
-      const rest = args.slice(args.indexOf(sub) + 1);
+      const { sub = '', rest } = gitSplit(args);
       if (
         (sub === 'push' && (rest.some((a) => /^(-f|--force|--force-with-lease|--mirror|--delete|-d|--prune)(=|$)/.test(a)) || rest.some((a) => a.startsWith(':') || a.startsWith('+')))) ||
         (sub === 'reset' && rest.includes('--hard')) ||

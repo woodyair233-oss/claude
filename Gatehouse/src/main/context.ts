@@ -1,4 +1,4 @@
-import type { BrowserWindow } from 'electron';
+import { nativeTheme, type BrowserWindow } from 'electron';
 import type { AppSnapshot, Toast } from '../shared/types';
 import type { Store } from './store';
 import type { Vault } from './vault';
@@ -48,6 +48,7 @@ export function buildSnapshot(ctx: AppContext): AppSnapshot {
     savedPasswords: vault.savedPasswordHostIds(),
     connectedHostIds: ctx.pool.connectedHostIds(),
     uiLocked: ctx.ui.locked,
+    darkMode: nativeTheme.shouldUseDarkColors,
     touchIdAvailable: ctx.touchId.available(),
     vault: vault.status(),
   };

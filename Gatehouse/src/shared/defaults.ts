@@ -32,7 +32,7 @@ export function defaultSettings(): Settings {
       cursorStyle: 'bar',
       cursorBlink: true,
       scrollback: 10000,
-      theme: 'gatehouse-dark',
+      theme: 'auto',
       copyOnSelect: false,
       optionIsMeta: true,
       bell: false,

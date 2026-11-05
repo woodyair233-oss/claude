@@ -1,0 +1,119 @@
+/* Design tokens — light by default, dark via prefers-color-scheme (driven by nativeTheme). */
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+
+  --bg: #ffffff;
+  --bg-subtle: #f8f8fa;
+  --bg-sunken: #f2f2f5;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(250, 250, 252, 0.86);
+  --sidebar-bg: rgba(236, 236, 241, 0.62);
+  --sidebar-solid: #ededf1;
+  --toolbar-bg: rgba(255, 255, 255, 0.82);
+
+  --text: #1d1d1f;
+  --text-2: #50505a;
+  --text-3: #8a8a93;
+  --text-4: #b4b4bc;
+  --border: rgba(0, 0, 0, 0.085);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --separator: rgba(0, 0, 0, 0.06);
+  --hover: rgba(0, 0, 0, 0.04);
+  --active: rgba(0, 0, 0, 0.07);
+  --focus-ring: color-mix(in srgb, var(--accent) 45%, transparent);
+
+  --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.2), 0 4px 14px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+
+  --accent: #0a7cff;
+  --accent-hover: #0068e0;
+  --accent-text: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 11%, transparent);
+  --accent-softer: color-mix(in srgb, var(--accent) 6%, transparent);
+  --accent-fg: color-mix(in srgb, var(--accent) 88%, #000);
+
+  --green: #28b04f;
+  --green-fg: #1a8a3a;
+  --green-soft: rgba(40, 176, 79, 0.12);
+  --amber: #f59a0b;
+  --amber-fg: #b26300;
+  --amber-soft: rgba(245, 154, 11, 0.14);
+  --red: #f0443a;
+  --red-fg: #d0251c;
+  --red-soft: rgba(240, 68, 58, 0.11);
+  --violet: #8b5cf6;
+  --violet-fg: #6c3fe0;
+  --violet-soft: rgba(139, 92, 246, 0.12);
+  --blue: #0a7cff;
+  --blue-fg: #0062cc;
+  --blue-soft: rgba(10, 124, 255, 0.1);
+  --teal: #14a7b8;
+  --teal-fg: #0b8494;
+  --teal-soft: rgba(20, 167, 184, 0.12);
+  --gray-soft: rgba(120, 120, 128, 0.12);
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --sidebar-w: 236px;
+  --toolbar-h: 52px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.22, 1.18, 0.36, 1);
+  color-scheme: light;
+}
+
+/* Dark tokens apply when the main process reports dark mode (data-theme on <html>). */
+:root[data-theme='dark'] {
+    --bg: #1d1d20;
+    --bg-subtle: #222226;
+    --bg-sunken: #17171a;
+    --bg-elevated: #2a2a2f;
+    --bg-overlay: rgba(28, 28, 32, 0.86);
+    --sidebar-bg: rgba(28, 28, 32, 0.5);
+    --sidebar-solid: #19191c;
+    --toolbar-bg: rgba(29, 29, 32, 0.84);
+
+    --text: #f3f3f5;
+    --text-2: #b6b6be;
+    --text-3: #80808a;
+    --text-4: #5a5a63;
+    --border: rgba(255, 255, 255, 0.085);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --separator: rgba(255, 255, 255, 0.06);
+    --hover: rgba(255, 255, 255, 0.055);
+    --active: rgba(255, 255, 255, 0.09);
+
+    --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 0.5px rgba(255, 255, 255, 0.08);
+
+    --accent-fg: color-mix(in srgb, var(--accent) 70%, #fff);
+    --green: #32d15a;
+    --green-fg: #4ade80;
+    --green-soft: rgba(50, 209, 90, 0.14);
+    --amber: #ffad33;
+    --amber-fg: #ffbe5c;
+    --amber-soft: rgba(255, 173, 51, 0.15);
+    --red: #ff5a50;
+    --red-fg: #ff7b72;
+    --red-soft: rgba(255, 90, 80, 0.15);
+    --violet: #a78bfa;
+    --violet-fg: #c4b1ff;
+    --violet-soft: rgba(167, 139, 250, 0.16);
+    --blue: #3b9cff;
+    --blue-fg: #6cb6ff;
+    --blue-soft: rgba(59, 156, 255, 0.15);
+    --teal: #2dd4e4;
+    --teal-fg: #5ee3ef;
+    --teal-soft: rgba(45, 212, 228, 0.14);
+    --gray-soft: rgba(160, 160, 170, 0.14);
+    color-scheme: dark;
+  }

@@ -499,6 +499,7 @@ export interface AppSnapshot {
   savedPasswords: string[];
   connectedHostIds: string[];
   uiLocked: boolean;
+  darkMode: boolean;
   touchIdAvailable: boolean;
   vault: VaultStatusInfo;
 }

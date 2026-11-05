@@ -92,6 +92,7 @@ function applySettings() {
   }
   buildAppMenu(ctx);
   tray?.sync();
+  queuePatch(() => ({ darkMode: nativeTheme.shouldUseDarkColors }));
 }
 
 function updateBadge() {
@@ -163,6 +164,7 @@ async function boot() {
       queuePatch(() => ({ gateway: gateway.status() }));
     }
   });
+  nativeTheme.on('updated', () => queuePatch(() => ({ darkMode: nativeTheme.shouldUseDarkColors })));
   vault.on('change', () => queuePatch(() => ({ vault: vault.status(), savedPasswords: vault.savedPasswordHostIds() })));
   prompts.on('change', () => queuePatch(() => ({ prompts: prompts.list() })));
   prompts.on('ask', () => {
