@@ -2,6 +2,8 @@ name: Gatehouse
 
 on:
   push:
+    branches:
+      - '**'
     paths:
       - 'Gatehouse/**'
       - '.github/workflows/gatehouse.yml'
