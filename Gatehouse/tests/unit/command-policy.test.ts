@@ -367,6 +367,33 @@ describe('security hardening (review round 1)', () => {
     expect(codes('ping -c1 host')).toContain('network-tool');
     expect(codes('whois example.com')).toContain('network-tool');
   });
+  it('treats GPU/accelerator status queries as read-only across vendors', () => {
+    // NVIDIA
+    expect(risk('nvidia-smi')).toBe('read');
+    expect(risk('nvidia-smi --query-gpu=utilization.gpu --format=csv')).toBe('read');
+    // AMD ROCm / AI Max (Ryzen AI)
+    expect(risk('rocm-smi')).toBe('read');
+    expect(risk('rocm-smi --showuse --showtemp')).toBe('read');
+    expect(risk('rocminfo')).toBe('read');
+    expect(risk('amd-smi monitor')).toBe('read');
+    expect(risk('amd-smi metric -g 0')).toBe('read');
+    expect(risk('xrt-smi examine')).toBe('read');
+    // Intel oneAPI
+    expect(risk('xpu-smi stats')).toBe('read');
+    expect(risk('xpu-smi discovery')).toBe('read');
+    expect(risk('clinfo')).toBe('read');
+    expect(risk('intel_gpu_top -l')).toBe('read');
+  });
+  it('flags GPU config / reset / firmware changes for approval', () => {
+    expect(risk('nvidia-smi -pl 250')).toBe('write');
+    expect(risk('rocm-smi --setfan 255')).toBe('write');
+    expect(risk('rocm-smi --gpureset -d 0')).toBe('write');
+    expect(risk('amd-smi set -g 0 --fan 100')).toBe('write');
+    expect(risk('amd-smi reset -g 0 --gpureset')).toBe('write');
+    expect(risk('xpu-smi config -d 0 -t 0 --frequencyrange 300,1000')).toBe('write');
+    expect(risk('nvidia-settings -a "[gpu:0]/GPUFanControlState=1"')).toBe('write');
+    expect(risk('intel_gpu_top -o /tmp/gpu.log')).toBe('write');
+  });
 });
 
 describe('user options', () => {

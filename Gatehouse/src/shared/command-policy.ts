@@ -229,6 +229,9 @@ const SIMPLE_READ = [
   'zipinfo', 'numfmt', 'seq', 'cal', 'ncal', 'look', 'fmt', 'pr', 'lsns', 'lslocks', 'lsipc', 'hash',
   'jobs', 'times', 'lsinitramfs', 'whatis', 'apropos', 'dpkg-query', 'systemd-analyze', 'systemd-cgls',
   'pwdx',
+  // GPU / accelerator info & monitors (vendor-neutral, read-only): AMD ROCm,
+  // Intel oneAPI, NVIDIA, and OpenCL/Vulkan enumeration.
+  'rocminfo', 'rocm_agent_enumerator', 'clinfo', 'vulkaninfo', 'nvtop', 'radeontop',
 ];
 
 // Network diagnostics: read-only w.r.t. the host's filesystem, but they make
@@ -283,6 +286,8 @@ const IP_OBJECTS = new Set([
 const IP_READ_ACTIONS = new Set(['show', 'list', 'ls', 'lst', 'sh', 's', 'get', 'l']);
 
 const NVIDIA_SMI_SETTERS = /^(-r|--gpu-reset|-pm|--persistence-mode|-e|--ecc-config|-p|--reset-ecc-errors|-c|--compute-mode|-dm|--driver-model|-fdm|--force-driver-model|-ac|--applications-clocks|-rac|--reset-applications-clocks|-acp|--applications-clocks-permission|-pl|--power-limit|-lgc|--lock-gpu-clocks|-rgc|--reset-gpu-clocks|-lmc|--lock-memory-clocks|-rmc|--reset-memory-clocks|-mig|--multi-instance-gpu|-cc|--cuda-clocks|--auto-boost-default|--auto-boost-permission)(=|$)/;
+// AMD ROCm rocm-smi writes: clocks, power, fans, perf level, partitions, resets.
+const ROCM_SMI_SETTERS = /^(-r|--resetclocks|--resetfans|--resetprofile|--resetxgmierr|--resetpoweroverdrive|--setsclk|--setmclk|--setpcie|--setslevel|--setmlevel|--setfan|--setperflevel|--setoverdrive|--setpoweroverdrive|--setprofile|--setcomputepartition|--setmemorypartition|--resetcomputepartition|--resetmemorypartition|--rasenable|--rasdisable|--rasinject|--gpureset|--load|--autorespond)(=|$)/;
 
 export interface SedScan {
   /** Filenames the script writes to (w, W, s///w). */
@@ -640,6 +645,24 @@ const RULES: Record<string, Rule> = {
     const bad = args.find((a) => NVIDIA_SMI_SETTERS.test(a));
     return bad ? modifying(`nvidia-smi ${bad}`) : true;
   },
+  // --- GPU / accelerator tooling, vendor-neutral -----------------------------
+  // The remote host can be any brand; query/monitor commands are read-only,
+  // while anything that changes clocks, power, fans, firmware or partitions is
+  // flagged. AMD (ROCm, AI Max / Ryzen AI), Intel (oneAPI) and NVIDIA alike.
+  'nvidia-settings': (args) =>
+    args.some((a) => /^(-a|--assign|-l|--load-config-only|--config)$/.test(a) || a.startsWith('--assign=')) ? modifying('nvidia-settings -a') : true,
+  'rocm-smi': (args) =>
+    args.some((a) => ROCM_SMI_SETTERS.test(a)) ? modifying('rocm-smi set/reset') : true,
+  'amd-smi': subcommand(
+    ['list', 'static', 'firmware', 'metric', 'monitor', 'topology', 'version', 'xgmi', 'process', 'bad-pages', 'partition', 'event', 'dpm', 'ras', 'help'],
+    'g',
+  ),
+  'xpu-smi': subcommand(['discovery', 'stats', 'dump', 'topology', 'health', 'ps', 'version', 'list', 'help'], 'd'),
+  xpumcli: subcommand(['discovery', 'stats', 'dump', 'topology', 'health', 'ps', 'version', 'list', 'help'], 'd'),
+  'xrt-smi': subcommand(['examine', 'version', 'list', 'help'], 'd'),
+  xbutil: subcommand(['examine', 'query', 'dump', 'version', 'list', 'help'], 'd'),
+  'intel_gpu_top': (args) =>
+    hasShort(args, 'o', 's') || hasLong(args, '--output') ? modifying('intel_gpu_top -o') : true,
   sysctl: (args) =>
     hasShort(args, 'w') || hasShort(args, 'p') || hasLong(args, '--write', '--load', '--system') || args.some((a) => a.includes('='))
       ? modifying('sysctl -w')
