@@ -116,8 +116,11 @@ export function createMainWindow(): BrowserWindow {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'clipboard-sanitized-write'));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'clipboard-sanitized-write');
 
+  const startHidden =
+    process.argv.includes('--hidden') ||
+    (process.platform === 'darwin' && (app.getLoginItemSettings() as { wasOpenedAsHidden?: boolean }).wasOpenedAsHidden === true);
   win.once('ready-to-show', () => {
-    if (!process.argv.includes('--hidden')) win.show();
+    if (!startHidden) win.show();
   });
 
   const save = () => {

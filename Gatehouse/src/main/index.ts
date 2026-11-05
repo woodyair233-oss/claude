@@ -28,6 +28,7 @@ if (!app.requestSingleInstanceLock()) {
 
 let mainWindow: BrowserWindow | null = null;
 let quitting = false;
+let initialized = false;
 let ctx: AppContext;
 let tray: TrayController;
 let socketServer: McpSocketServer | undefined;
@@ -83,12 +84,16 @@ function toast(t: Toast) {
 function applySettings() {
   const s = ctx.store.settings;
   nativeTheme.themeSource = s.theme;
-  if (process.platform === 'darwin' || process.platform === 'win32') {
-    try {
+  try {
+    if (process.platform === 'darwin') {
+      // macOS ignores custom args; it has its own "open hidden" flag instead
+      // (not in this Electron version's type defs, but supported at runtime).
+      app.setLoginItemSettings({ openAtLogin: s.launchAtLogin, openAsHidden: true } as Parameters<typeof app.setLoginItemSettings>[0]);
+    } else if (process.platform === 'win32') {
       app.setLoginItemSettings({ openAtLogin: s.launchAtLogin, args: ['--hidden'] });
-    } catch {
-      /* unsigned builds may refuse */
     }
+  } catch {
+    /* unsigned builds may refuse */
   }
   buildAppMenu(ctx);
   tray?.sync();
@@ -153,6 +158,7 @@ async function boot() {
   registerIpc(ctx);
   tray = new TrayController(ctx);
   mainWindow = createWindow();
+  initialized = true;
   applySettings();
 
   // --- Wire change events to renderer patches ---------------------------------
@@ -227,8 +233,11 @@ async function boot() {
   });
 }
 
-app.on('second-instance', () => showWindow());
-app.on('activate', () => showWindow());
+// Until startup has created the main window, let init() do it — otherwise a Dock
+// click or second launch during a slow start (Keychain prompt, audit load) could
+// create a premature window and leave two behind.
+app.on('second-instance', () => { if (initialized) showWindow(); });
+app.on('activate', () => { if (initialized) showWindow(); });
 
 app.on('before-quit', (e) => {
   if (quitting || !ctx) return;
