@@ -322,6 +322,7 @@ export type AuditOutcome =
   | 'auto'
   | 'approved'
   | 'denied'
+  | 'cancelled'
   | 'blocked'
   | 'timeout'
   | 'paused'

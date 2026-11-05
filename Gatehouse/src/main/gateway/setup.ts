@@ -125,11 +125,25 @@ export async function selfTest(bridge: string, env: NodeJS.ProcessEnv): Promise<
     const child = spawn(bridge, ['--no-launch', '--label', 'self-test'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
+    let done = false;
+    const finish = (r: { ok: boolean; detail: string }) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(r);
+    };
     const timer = setTimeout(() => {
       child.kill();
-      resolve({ ok: false, detail: 'Timed out waiting for the MCP handshake.' });
+      finish({ ok: false, detail: 'Timed out waiting for the MCP handshake.' });
     }, 10_000);
-    const send = (msg: unknown) => child.stdin.write(JSON.stringify(msg) + '\n');
+    // Writing to a bridge that has already exited throws EPIPE on the stream;
+    // swallow it (and any spawn error) instead of crashing the main process.
+    child.on('error', (e) => finish({ ok: false, detail: `Could not start the bridge: ${e.message}` }));
+    child.stdin.on('error', () => undefined);
+    const send = (msg: unknown) => {
+      if (!child.stdin.writable) return;
+      child.stdin.write(JSON.stringify(msg) + '\n');
+    };
     child.stdout.on('data', (d: Buffer) => {
       out += d.toString('utf8');
       const lines = out.split('\n');
@@ -140,10 +154,9 @@ export async function selfTest(bridge: string, env: NodeJS.ProcessEnv): Promise<
             send({ jsonrpc: '2.0', method: 'notifications/initialized' });
             send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
           } else if (msg.id === 2 && msg.result?.tools) {
-            clearTimeout(timer);
             child.stdin.end();
             setTimeout(() => child.kill(), 500);
-            resolve({ ok: true, detail: `${msg.result.tools.length} tools: ${msg.result.tools.map((t) => t.name).join(', ')}` });
+            finish({ ok: true, detail: `${msg.result.tools.length} tools: ${msg.result.tools.map((t) => t.name).join(', ')}` });
           }
         } catch {
           /* partial */
@@ -152,10 +165,7 @@ export async function selfTest(bridge: string, env: NodeJS.ProcessEnv): Promise<
       out = lines[lines.length - 1];
     });
     child.stderr.on('data', (d: Buffer) => (err += d.toString('utf8')));
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      resolve({ ok: false, detail: err.trim() || `Bridge exited with code ${code}` });
-    });
+    child.on('exit', (code) => finish({ ok: false, detail: err.trim() || `Bridge exited with code ${code}` }));
     send({
       jsonrpc: '2.0',
       id: 1,

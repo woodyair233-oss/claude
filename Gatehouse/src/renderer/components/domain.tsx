@@ -67,6 +67,7 @@ export const OUTCOME_META: Record<AuditOutcome | 'pending' | 'running', { label:
   auto: { label: 'Auto-approved', tone: 'green', icon: <Check size={11} /> },
   approved: { label: 'Approved', tone: 'blue', icon: <ShieldCheck size={11} /> },
   denied: { label: 'Denied', tone: 'red', icon: <Hand size={11} /> },
+  cancelled: { label: 'Cancelled', tone: 'amber', icon: <CircleDashed size={11} /> },
   blocked: { label: 'Blocked', tone: 'red', icon: <Ban size={11} /> },
   timeout: { label: 'Timed out', tone: 'amber', icon: <Timer size={11} /> },
   paused: { label: 'Paused', tone: 'amber', icon: <CircleDashed size={11} /> },

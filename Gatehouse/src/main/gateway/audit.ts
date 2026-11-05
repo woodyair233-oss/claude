@@ -85,7 +85,10 @@ export class AuditLog {
     const hash = chainHash(prev, body, this.key);
     this.lastHash = hash;
     const line = JSON.stringify({ ...entry, prev, hash }) + '\n';
-    const file = join(this.dir, `${monthKey(entry.ts)}.jsonl`);
+    // Choose the file by append time, not the entry's start time: a request that
+    // finishes after the month rolls over must still append in chain order, or
+    // verify() would see the chain jump between files and report false tampering.
+    const file = join(this.dir, `${monthKey(Date.now())}.jsonl`);
     this.queue = this.queue
       .then(() => fsp.appendFile(file, line, { mode: 0o600 }))
       .catch((err) => console.error('[gatehouse] audit write failed', err));

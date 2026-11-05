@@ -145,9 +145,10 @@ export function createMcpServer(gw: GatewayService, session: SessionCtx, appVers
     );
     if (!outcome.allowed) {
       const reason = outcome.reason;
+      // A client cancel / kill switch / quit is not a user denial — record it as such.
       gw.end(activityId, {
-        outcome: reason === 'timeout' ? 'timeout' : 'denied',
-        decidedBy: 'user',
+        outcome: reason === 'timeout' ? 'timeout' : reason === 'cancelled' ? 'cancelled' : 'denied',
+        decidedBy: reason === 'cancelled' ? 'policy' : 'user',
         userMessage: outcome.message,
       });
       const msg =

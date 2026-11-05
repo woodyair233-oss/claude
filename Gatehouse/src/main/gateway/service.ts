@@ -216,7 +216,10 @@ export class GatewayService extends EventEmitter {
       return { ok: false, outcome: 'rate-limited', message: `Rate limit reached (${ai.rateLimitPerMinute} calls per minute). Wait a moment and batch work into fewer commands.` };
     }
     const today = dayKey(now);
-    const usedToday = this.recentEntries.filter((e) => dayKey(e.ts) === today && e.outcome !== 'rate-limited').length;
+    // Only count real attempts toward the daily quota — not refusals the gateway
+    // itself produced (rate-limited, paused, always-blocked).
+    const NON_ACTION: AuditOutcome[] = ['rate-limited', 'paused', 'blocked'];
+    const usedToday = this.recentEntries.filter((e) => dayKey(e.ts) === today && !NON_ACTION.includes(e.outcome)).length;
     if (usedToday >= ai.dailyQuota) {
       return { ok: false, outcome: 'rate-limited', message: `The daily limit of ${ai.dailyQuota} AI actions has been reached. Ask the user to raise it in Gatehouse settings.` };
     }
