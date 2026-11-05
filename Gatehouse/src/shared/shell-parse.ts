@@ -208,13 +208,61 @@ export function parseShell(input: string): ParseResult {
     }
 
     if (c === '$' && input[i + 1] === "'") {
-      // ANSI-C quoting: $'...'
+      // ANSI-C quoting: $'...'. Decode the escape set bash supports so the
+      // classifier sees the real program/arguments, not an obfuscated form
+      // (e.g. $'\x72\x6d' is `rm`, $'\x2d\x72\x66' is `-rf`).
       let j = i + 2;
       let s = '';
       while (j < n && input[j] !== "'") {
         if (input[j] === '\\' && j + 1 < n) {
-          s += input[j + 1];
-          j += 2;
+          const e = input[j + 1];
+          const simple: Record<string, string> = {
+            n: '\n', t: '\t', r: '\r', a: '\x07', b: '\b', f: '\f', v: '\v',
+            e: '\x1b', E: '\x1b', '\\': '\\', "'": "'", '"': '"', '?': '?',
+          };
+          if (e in simple) {
+            s += simple[e];
+            j += 2;
+          } else if (e === 'x') {
+            let k = j + 2;
+            let hex = '';
+            while (k < n && hex.length < 2 && /[0-9a-fA-F]/.test(input[k])) hex += input[k++];
+            if (hex) {
+              s += String.fromCharCode(parseInt(hex, 16));
+              j = k;
+            } else {
+              s += 'x';
+              j += 2;
+            }
+          } else if (e === 'u' || e === 'U') {
+            const max = e === 'u' ? 4 : 8;
+            let k = j + 2;
+            let hex = '';
+            while (k < n && hex.length < max && /[0-9a-fA-F]/.test(input[k])) hex += input[k++];
+            if (hex) {
+              try {
+                s += String.fromCodePoint(parseInt(hex, 16));
+              } catch {
+                /* out of range: drop */
+              }
+              j = k;
+            } else {
+              s += e;
+              j += 2;
+            }
+          } else if (e === 'c' && j + 2 < n) {
+            s += String.fromCharCode(input[j + 2].toUpperCase().charCodeAt(0) ^ 0x40);
+            j += 3;
+          } else if (e >= '0' && e <= '7') {
+            let k = j + 1;
+            let oct = '';
+            while (k < n && oct.length < 3 && input[k] >= '0' && input[k] <= '7') oct += input[k++];
+            s += String.fromCharCode(parseInt(oct, 8) & 0xff);
+            j = k;
+          } else {
+            s += e;
+            j += 2;
+          }
         } else {
           s += input[j];
           j++;

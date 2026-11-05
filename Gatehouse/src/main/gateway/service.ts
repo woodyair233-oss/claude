@@ -86,7 +86,13 @@ export class GatewayService extends EventEmitter {
     this.approvals.on('change', () => this.emit('change'));
   }
 
+  private applyAuditKey() {
+    this.audit.setKey(this.deps.vault.deriveKey('audit-chain-v1'));
+  }
+
   async init() {
+    this.applyAuditKey();
+    this.deps.vault.on('change', () => this.applyAuditKey());
     try {
       this.audit.prune(this.settings.ai.auditRetentionDays);
       this.recentEntries = (await this.audit.recent(Date.now() - DAY_MS)).reverse();

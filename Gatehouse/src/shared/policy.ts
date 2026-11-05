@@ -54,10 +54,9 @@ export function decideCommand({ host, ai, security, command, assessment: a, gran
     allowRemember: a.risk !== 'danger' && a.simple && !a.sensitive,
   });
 
-  if (a.risk !== 'danger' && a.simple && host.ai.allowPatterns.some((p) => matchCommandPattern(command, p))) {
-    return allow('allowlist');
-  }
-
+  // Order matters: danger, credential-file and read-only checks all run before
+  // the per-host allowlist, so a broad "always allow" pattern cannot be used to
+  // slip a dangerous or secret-touching command past them.
   if (a.risk === 'danger') {
     if (mode === 'read-only') {
       return deny('read-only', `"${host.alias}" is read-only for AI and this command ${a.reasons.filter((r) => r.code !== 'sensitive-path').map(describeReason).slice(0, 3).join('; ')}.`);
@@ -65,15 +64,21 @@ export function decideCommand({ host, ai, security, command, assessment: a, gran
     return ask('danger');
   }
   if (a.sensitive) return ask(mode === 'read-only' ? 'read-only-sensitive' : 'sensitive');
-  if (grantActive && mode !== 'read-only') return allow('grant');
+  if (mode === 'read-only') {
+    if (a.risk === 'read') return allow('policy');
+    return deny(
+      'read-only',
+      `"${host.alias}" is read-only for AI and this command ${a.reasons.map(describeReason).slice(0, 3).join('; ')}.`,
+    );
+  }
+
+  if (a.simple && host.ai.allowPatterns.some((p) => matchCommandPattern(command, p))) {
+    return allow('allowlist');
+  }
+
+  if (grantActive) return allow('grant');
 
   switch (mode) {
-    case 'read-only':
-      if (a.risk === 'read') return allow('policy');
-      return deny(
-        'read-only',
-        `"${host.alias}" is read-only for AI and this command ${a.reasons.map(describeReason).slice(0, 3).join('; ')}.`,
-      );
     case 'ask':
       return a.risk === 'read' && ai.autoApproveReadOnly ? allow('policy') : ask('mode-ask');
     case 'trusted':

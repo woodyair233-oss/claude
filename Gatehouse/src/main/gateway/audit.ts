@@ -2,7 +2,7 @@
 // Each line carries `prev` (hash of the previous line) and `hash`
 // (sha256 over prev + the entry), so edits or deletions are detectable.
 
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { promises as fsp, readFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AuditEntry } from '../../shared/types';
@@ -32,17 +32,25 @@ function monthKey(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function chainHash(prev: string, body: string): string {
-  return createHash('sha256').update(prev).update('\n').update(body).digest('hex');
+function chainHash(prev: string, body: string, key?: Buffer): string {
+  const h = key ? createHmac('sha256', key) : createHash('sha256');
+  return h.update(prev).update('\n').update(body).digest('hex');
 }
 
 export class AuditLog {
   private lastHash = GENESIS;
   private queue: Promise<void> = Promise.resolve();
+  /** When set (vault-derived), the chain is HMAC-keyed so it cannot be forged without the vault key. */
+  private key?: Buffer;
 
   constructor(private readonly dir: string) {
     ensureDirSync(dir);
     this.lastHash = this.readLastHash();
+  }
+
+  /** Supplies the HMAC key once the vault is unlocked. Safe to call repeatedly. */
+  setKey(key: Buffer | undefined) {
+    if (key) this.key = key;
   }
 
   private files(): string[] {
@@ -74,7 +82,7 @@ export class AuditLog {
   append(entry: AuditEntry): Promise<void> {
     const body = JSON.stringify(entry);
     const prev = this.lastHash;
-    const hash = chainHash(prev, body);
+    const hash = chainHash(prev, body, this.key);
     this.lastHash = hash;
     const line = JSON.stringify({ ...entry, prev, hash }) + '\n';
     const file = join(this.dir, `${monthKey(entry.ts)}.jsonl`);
@@ -156,7 +164,7 @@ export class AuditLog {
         if (prev !== null && p !== prev) {
           return { ok: false, entries, files: files.length, brokenAt: { file: f, line: i + 1, reason: 'chain link mismatch (entry removed or reordered)' } };
         }
-        if (chainHash(p, JSON.stringify(rest)) !== hash) {
+        if (chainHash(p, JSON.stringify(rest), this.key) !== hash) {
           return { ok: false, entries, files: files.length, brokenAt: { file: f, line: i + 1, reason: 'content was modified' } };
         }
         prev = hash;

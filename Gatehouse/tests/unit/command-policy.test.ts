@@ -129,7 +129,11 @@ describe('non read-only commands need approval', () => {
     ["sed -ni 's/a/b/p' file", 'modifying-args'],
     ["sed -i.bak 's/a/b/' file", 'modifying-args'],
     ["sed 's/a/b/w out.txt' file", 'modifying-args'],
-    ["sed '1e date' file", 'modifying-args'],
+    ["sed '1e date' file", 'interpreter'],
+    ["sed 's/x/y/e' file", 'interpreter'],
+    ["sed 'wsecrets.txt' file", 'modifying-args'],
+    ["sed '/foo/W out' file", 'modifying-args'],
+    ["sed -e 's/a/b/' -e 'w /tmp/z' file", 'modifying-args'],
     ['find . -name "*.tmp" -exec rm {} \\;', 'modifying-args'],
     ['sort -o sorted.txt data', 'modifying-args'],
     ['sort -uo sorted.txt data', 'modifying-args'],
@@ -310,6 +314,58 @@ describe('sensitive data', () => {
     expect(isSystemPath('/etc/nginx/nginx.conf')).toBe(true);
     expect(isSystemPath('/home/me/app')).toBe(false);
     expect(isSystemPath('/usr')).toBe(true);
+  });
+});
+
+describe('security hardening (review round 1)', () => {
+  it('normalises path obfuscation for sensitive checks', () => {
+    expect(isSensitivePath('/etc//shadow')).toBe(true);
+    expect(isSensitivePath('/etc/./shadow')).toBe(true);
+    expect(isSensitivePath('.ssh/./id_ed25519')).toBe(true);
+    expect(isSensitivePath('/var/../etc/shadow')).toBe(true);
+    expect(isSensitivePath('.kube//config')).toBe(true);
+  });
+  it('treats globs that could expand to a sensitive file as sensitive', () => {
+    expect(assessCommand('cat /etc/sh*').sensitive).toBe(true);
+    expect(assessCommand('cat ~/.ssh/*').sensitive).toBe(true);
+    expect(assessCommand('cat /etc/ssh/ssh_host_*key').sensitive).toBe(true);
+    expect(assessCommand('cat /var/log/*.log').sensitive).toBe(false);
+  });
+  it('normalises obfuscated system-path writes', () => {
+    expect(isSystemPath('//etc/cron.d/x')).toBe(true);
+    expect(isSystemPath('/etc/../etc/passwd')).toBe(true);
+    expect(codes('tee //etc/cron.d/x')).toContain('system-file-write');
+  });
+  it('decodes ANSI-C $\'...\' quoting so obfuscated commands are classified', () => {
+    // $'\x72\x6d' === "rm", $'\x2d\x72\x66' === "-rf"
+    expect(codes("$'\\x72\\x6d' -rf /")).toContain('root-delete');
+    expect(risk("cat $'\\x2fetc\\x2fshadow'" )).toBe('read');
+    expect(assessCommand("cat $'\\x2f\\x65\\x74\\x63\\x2fshadow'").sensitive).toBe(true);
+  });
+  it('closes the sed w/W/e bypass (no-space forms)', () => {
+    expect(risk("sed 'wout'")).toBe('write');
+    expect(risk("sed 's/a/b/w out'")).toBe('write');
+    expect(risk("echo x | sed '1e id'")).toBe('write');
+    expect(assessCommand("sed 'r /etc/shadow' file").sensitive).toBe(true);
+    expect(risk("sed -n 's/a/b/p' file")).toBe('read');
+    expect(risk("sed 's/foo/bar/g' file")).toBe('read');
+  });
+  it('flags jq env leakage but keeps plain jq read-only', () => {
+    expect(assessCommand("jq -n 'env'").sensitive).toBe(true);
+    expect(assessCommand("jq -n '$ENV.SECRET'").sensitive).toBe(true);
+    expect(risk("jq '.name' data.json")).toBe('read');
+    expect(assessCommand("jq '.environment' data.json").sensitive).toBe(false);
+  });
+  it('flags gawk file-writing flags and file -C', () => {
+    expect(risk("gawk -o prof.txt '{print}' f")).toBe('write');
+    expect(risk("gawk -p '{print}' f")).toBe('write');
+    expect(risk('file -C -m mymagic')).toBe('write');
+    expect(risk('file data.bin')).toBe('read');
+  });
+  it('classifies DNS / ping diagnostics as network tools', () => {
+    expect(codes('dig example.com')).toContain('network-tool');
+    expect(codes('ping -c1 host')).toContain('network-tool');
+    expect(codes('whois example.com')).toContain('network-tool');
   });
 });
 

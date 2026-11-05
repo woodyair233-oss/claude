@@ -217,19 +217,27 @@ function versionOnly(args: string[]): boolean {
 const SIMPLE_READ = [
   'cat', 'tac', 'nl', 'head', 'tail', 'rev', 'fold', 'column', 'expand', 'unexpand', 'strings', 'od',
   'hexdump', 'base64', 'base32', 'basenc', 'md5sum', 'sha1sum', 'sha224sum', 'sha256sum', 'sha384sum',
-  'sha512sum', 'b2sum', 'cksum', 'sum', 'wc', 'file', 'stat', 'du', 'df', 'free', 'uptime', 'uname',
+  'sha512sum', 'b2sum', 'cksum', 'sum', 'wc', 'stat', 'du', 'df', 'free', 'uptime', 'uname',
   'whoami', 'id', 'groups', 'who', 'w', 'last', 'lastlog', 'lastb', 'users', 'pwd', 'echo', 'printf',
   'true', 'false', 'test', '[', ':', 'sleep', 'which', 'whereis', 'type', 'realpath', 'readlink',
   'basename', 'dirname', 'ls', 'dir', 'vdir', 'lsblk', 'blkid', 'lscpu', 'lsmem', 'lspci', 'lsusb',
   'lsmod', 'modinfo', 'lshw', 'dmidecode', 'nproc', 'getconf', 'arch', 'locale', 'tty', 'grep', 'egrep',
   'fgrep', 'zgrep', 'zegrep', 'zfgrep', 'zcat', 'bzcat', 'xzcat', 'zstdcat', 'lz4cat', 'ag', 'ack', 'diff',
-  'cmp', 'comm', 'join', 'paste', 'cut', 'tr', 'jq', 'sensors', 'vmstat', 'iostat', 'mpstat', 'pidstat',
-  'sar', 'getent', 'ps', 'pgrep', 'pstree', 'lsof', 'ss', 'netstat', 'dig', 'nslookup', 'host', 'ping',
-  'ping6', 'traceroute', 'tracepath', 'findmnt', 'getfacl', 'lsattr', 'namei', 'cd', 'pushd', 'popd',
+  'cmp', 'comm', 'join', 'paste', 'cut', 'tr', 'sensors', 'vmstat', 'iostat', 'mpstat', 'pidstat',
+  'sar', 'getent', 'ps', 'pgrep', 'pstree', 'lsof', 'ss', 'netstat',
+  'findmnt', 'getfacl', 'lsattr', 'namei', 'cd', 'pushd', 'popd',
   'zipinfo', 'numfmt', 'seq', 'cal', 'ncal', 'look', 'fmt', 'pr', 'lsns', 'lslocks', 'lsipc', 'hash',
   'jobs', 'times', 'lsinitramfs', 'whatis', 'apropos', 'dpkg-query', 'systemd-analyze', 'systemd-cgls',
-  'pwdx', 'whois',
+  'pwdx',
 ];
+
+// Network diagnostics: read-only w.r.t. the host's filesystem, but they make
+// outbound connections / DNS queries, so they are surfaced like other network
+// tools rather than treated as a silent local read.
+const NET_DIAG = new Set([
+  'dig', 'nslookup', 'host', 'ping', 'ping6', 'traceroute', 'traceroute6', 'tracepath', 'tracepath6',
+  'mtr', 'whois', 'arping', 'host6',
+]);
 
 const GIT_READ = new Set([
   'status', 'log', 'show', 'diff', 'rev-parse', 'ls-files', 'ls-tree', 'blame', 'describe', 'shortlog',
@@ -276,26 +284,232 @@ const IP_READ_ACTIONS = new Set(['show', 'list', 'ls', 'lst', 'sh', 's', 'get', 
 
 const NVIDIA_SMI_SETTERS = /^(-r|--gpu-reset|-pm|--persistence-mode|-e|--ecc-config|-p|--reset-ecc-errors|-c|--compute-mode|-dm|--driver-model|-fdm|--force-driver-model|-ac|--applications-clocks|-rac|--reset-applications-clocks|-acp|--applications-clocks-permission|-pl|--power-limit|-lgc|--lock-gpu-clocks|-rgc|--reset-gpu-clocks|-lmc|--lock-memory-clocks|-rmc|--reset-memory-clocks|-mig|--multi-instance-gpu|-cc|--cuda-clocks|--auto-boost-default|--auto-boost-permission)(=|$)/;
 
+export interface SedScan {
+  /** Filenames the script writes to (w, W, s///w). */
+  writes: string[];
+  /** Filenames the script reads (r, R). */
+  reads: string[];
+  /** The script executes commands (e, s///e). */
+  exec: boolean;
+  /** A write/exec command, or a construct we could not prove inert, is present. */
+  flagged: boolean;
+}
+
+/**
+ * Light tokenizer for a sed script. It walks command positions (skipping
+ * addresses, `s`/`y` bodies and text blocks) and reports w/W/r/R/e commands
+ * and s/// `w`/`e` flags. Anything it cannot confidently prove inert sets
+ * `flagged`, so the classifier errs toward requiring approval.
+ */
+export function scanSedScript(script: string): SedScan {
+  const scan: SedScan = { writes: [], reads: [], exec: false, flagged: false };
+  const n = script.length;
+  const isBlank = (ch: string) => ch === ' ' || ch === '\t';
+  const skipBlanks = (k: number) => {
+    while (k < n && isBlank(script[k])) k++;
+    return k;
+  };
+  const restOfLine = (from: number): [string, number] => {
+    let k = skipBlanks(from);
+    let end = k;
+    while (end < n && script[end] !== '\n') end++;
+    return [script.slice(k, end).trim(), end];
+  };
+  // Skips a /re/ or \%re% body; returns the index of the closing delimiter (or n).
+  const skipRegex = (from: number, delim: string): number => {
+    let k = from;
+    while (k < n && script[k] !== delim) {
+      if (script[k] === '\\') k += 2;
+      else if (script[k] === '[') {
+        k++;
+        if (script[k] === '^') k++;
+        if (script[k] === ']') k++;
+        while (k < n && script[k] !== ']') k++;
+        k++;
+      } else k++;
+    }
+    return k;
+  };
+  const skipOneAddr = (k: number): number => {
+    const ch = script[k];
+    if (ch === '$') return k + 1;
+    if (ch >= '0' && ch <= '9') {
+      while (k < n && /\d/.test(script[k])) k++;
+      if (script[k] === '~') {
+        k++;
+        while (k < n && /\d/.test(script[k])) k++;
+      }
+      return k;
+    }
+    if (ch === '/') return skipRegex(k + 1, '/') + 1;
+    if (ch === '\\') return skipRegex(k + 2, script[k + 1]) + 1;
+    return k;
+  };
+  const skipAddresses = (k: number): number => {
+    const before = k;
+    k = skipOneAddr(k);
+    if (k === before) return k;
+    k = skipBlanks(k);
+    if (script[k] === ',') {
+      k = skipBlanks(k + 1);
+      if (script[k] === '+' || script[k] === '~') {
+        k++;
+        while (k < n && /\d/.test(script[k])) k++;
+      } else k = skipOneAddr(k);
+    }
+    k = skipBlanks(k);
+    while (script[k] === '!') k = skipBlanks(k + 1);
+    return k;
+  };
+
+  let i = 0;
+  let atCmd = true;
+  while (i < n) {
+    const c = script[i];
+    if (c === '\n' || c === ';') {
+      atCmd = true;
+      i++;
+      continue;
+    }
+    if (isBlank(c)) {
+      i++;
+      continue;
+    }
+    if (c === '{' || c === '}') {
+      atCmd = true;
+      i++;
+      continue;
+    }
+    if (c === '#') {
+      while (i < n && script[i] !== '\n') i++;
+      continue;
+    }
+    if (!atCmd) {
+      i++;
+      continue;
+    }
+    atCmd = false;
+    let k = skipAddresses(i);
+    if (k >= n) break;
+    const cmd = script[k];
+    k++;
+    if (cmd === 's' || cmd === 'y') {
+      const delim = script[k];
+      if (!delim || delim === '\n' || delim === ';') {
+        scan.flagged = true;
+        i = k;
+        continue;
+      }
+      k = skipRegex(k + 1, delim);
+      if (script[k] !== delim) {
+        scan.flagged = true;
+        i = k;
+        continue;
+      }
+      k = skipRegex(k + 1, delim);
+      if (script[k] !== delim) {
+        scan.flagged = true;
+        i = k;
+        continue;
+      }
+      k++;
+      if (cmd === 's') {
+        while (k < n && /[0-9gpiImMe]/.test(script[k])) {
+          if (script[k] === 'e') {
+            scan.exec = true;
+            scan.flagged = true;
+          }
+          k++;
+        }
+        if (script[k] === 'w') {
+          const [fname, end] = restOfLine(k + 1);
+          if (fname) scan.writes.push(fname);
+          scan.flagged = true;
+          i = end;
+          continue;
+        }
+      }
+      i = k;
+    } else if (cmd === 'w' || cmd === 'W') {
+      const [fname, end] = restOfLine(k);
+      if (fname) scan.writes.push(fname);
+      scan.flagged = true;
+      i = end;
+    } else if (cmd === 'r' || cmd === 'R') {
+      const [fname, end] = restOfLine(k);
+      if (fname) scan.reads.push(fname);
+      i = end;
+    } else if (cmd === 'e') {
+      scan.exec = true;
+      scan.flagged = true;
+      i = restOfLine(k)[1];
+    } else if (cmd === 'a' || cmd === 'i' || cmd === 'c') {
+      let end = k;
+      while (end < n) {
+        if (script[end] === '\\' && end + 1 < n) {
+          end += 2;
+          continue;
+        }
+        if (script[end] === '\n') break;
+        end++;
+      }
+      i = end;
+    } else if (cmd === 'b' || cmd === 't' || cmd === 'T' || cmd === ':') {
+      let end = k;
+      while (end < n && script[end] !== ';' && script[end] !== '\n') end++;
+      i = end;
+    } else if (cmd === 'l' || cmd === 'q' || cmd === 'Q' || cmd === 'L' || cmd === 'v') {
+      k = skipBlanks(k);
+      while (k < n && /\d/.test(script[k])) k++;
+      i = k;
+    } else if ('dDgGhHnNpPxz=F'.includes(cmd)) {
+      i = k;
+    } else {
+      // Unknown command letter: do not assume it is inert.
+      scan.flagged = true;
+      i = k;
+    }
+  }
+  return scan;
+}
+
+/** Collects the sed program text from -e/--expression or the first positional. */
+function sedScripts(args: string[]): string[] {
+  const scripts: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '-e' || a === '--expression') {
+      if (args[i + 1] !== undefined) scripts.push(args[++i]);
+    } else if (a.startsWith('--expression=')) scripts.push(a.slice('--expression='.length));
+    else if (a.startsWith('-e') && a.length > 2) scripts.push(a.slice(2));
+  }
+  if (scripts.length === 0) {
+    const p = positionals(args, 'efl');
+    if (p[0] !== undefined) scripts.push(p[0]);
+  }
+  return scripts;
+}
+
 const RULES: Record<string, Rule> = {
   sed: (args) => {
     if (hasShort(args, 'i', 'efl') || hasLong(args, '--in-place')) return modifying('sed -i');
     if (hasShort(args, 'f', 'el') || hasLong(args, '--file')) return modifying('sed -f');
-    const scripts: string[] = [];
-    for (let i = 0; i < args.length; i++) {
-      const a = args[i];
-      if (a === '-e' || a === '--expression') {
-        if (args[i + 1] !== undefined) scripts.push(args[++i]);
-      } else if (a.startsWith('--expression=')) scripts.push(a.slice('--expression='.length));
-    }
-    if (scripts.length === 0) {
-      const p = positionals(args, 'efl');
-      if (p[0] !== undefined) scripts.push(p[0]);
-    }
-    for (const s of scripts) {
-      if (/(^|[^A-Za-z\\])[wWe](\s|$|;|\})/.test(s)) return modifying('sed w/e command');
+    for (const s of sedScripts(args)) {
+      const scan = scanSedScript(s);
+      if (scan.exec) return { code: 'interpreter', detail: 'sed e command' };
+      if (scan.flagged) return modifying('sed w/W command');
     }
     return true;
   },
+  jq: (args) => {
+    // jq cannot write files, but `env` / $ENV expose environment variables, and
+    // -f reads a program file. File arguments are path-checked separately.
+    for (const a of args) {
+      if (/(^|[^.\w])env\b/.test(a) || /\$ENV\b/.test(a)) return { code: 'sensitive-command', detail: 'jq env' };
+    }
+    return true;
+  },
+  file: (args) => (hasShort(args, 'C') || hasLong(args, '--compile') ? modifying('file -C') : true),
   awk: awkRule,
   gawk: awkRule,
   mawk: awkRule,
@@ -467,6 +681,14 @@ const RULES: Record<string, Rule> = {
 function awkRule(args: string[]): RuleResult {
   if (args.some((a) => a === '-f' || a.startsWith('--file') || a === '-i' || a.startsWith('--include') || a === '-l' || a.startsWith('--load') || a === '-E' || a.startsWith('--exec'))) {
     return modifying('awk -f/-i/-l');
+  }
+  // gawk profiling / pretty-printing / debugger write files (awkprof.out by
+  // default) or open an interactive debugger.
+  if (args.some((a) =>
+    a === '-o' || a.startsWith('-o') || a === '--pretty-print' || a.startsWith('--pretty-print=') ||
+    a === '-p' || a.startsWith('-p') || a === '--profile' || a.startsWith('--profile=') ||
+    a === '-D' || a.startsWith('-D') || a === '--debug' || a.startsWith('--debug='))) {
+    return modifying('gawk -o/-p/-D');
   }
   const program = args.find((a, idx) => !a.startsWith('-') && !(idx > 0 && ['-F', '-v', '--field-separator', '--assign'].includes(args[idx - 1])));
   if (program !== undefined && /system|\||>|getline/.test(program)) return modifying('awk system/redirect');
@@ -650,18 +872,81 @@ function pathCandidate(word: string): string {
   return w.replace(/^["']|["']$/g, '');
 }
 
+const GLOB_META = /[*?[]/;
+
+/**
+ * Normalises a path for policy checks so that `//`, `/./`, `..` and
+ * relative paths cannot be used to hide a sensitive or system target.
+ * Relative paths are resolved against `~` (the SSH session's home), matching
+ * how the remote shell would interpret them. Glob metacharacters are kept.
+ */
+export function normalizePathForCheck(raw: string): string {
+  let p = pathCandidate(raw).replace(/^(\$HOME|\$\{HOME\})(?=\/|$)/, '~');
+  if (!p) return p;
+  const isAbs = p.startsWith('/');
+  const tilde = p === '~' || p.startsWith('~/');
+  let body = p;
+  if (tilde) body = p.slice(1);
+  const out: string[] = [];
+  for (const seg of body.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') {
+      if (out.length && out[out.length - 1] !== '..') out.pop();
+      else if (!isAbs && !tilde) out.push('..');
+    } else out.push(seg);
+  }
+  if (isAbs) return '/' + out.join('/');
+  if (tilde) return out.length ? '~/' + out.join('/') : '~';
+  return out.length ? '~/' + out.join('/') : '~';
+}
+
+/** A concrete-ish representative of a glob, for overlap testing. */
+function representativePath(glob: string): string {
+  return glob.replace(/\*\*/g, 'x').replace(/[*?]/g, 'x').replace(/\[[^\]]*\]/g, 'x');
+}
+
 export function isSensitivePath(path: string, patterns: string[] = DEFAULT_SENSITIVE_PATHS): boolean {
-  const candidate = pathCandidate(path).replace(/^(\$HOME|\$\{HOME\})/, '~');
+  const candidate = normalizePathForCheck(path);
   if (!candidate || candidate.length > 4096) return false;
   const { include, exclude } = compilePathPatterns(patterns);
-  if (exclude.some((rx) => rx.test(candidate))) return false;
-  return include.some((rx) => rx.test(candidate));
+  const literalExcluded = exclude.some((rx) => rx.test(candidate));
+  if (!literalExcluded && include.some((rx) => rx.test(candidate))) return true;
+  if (literalExcluded) return false;
+  // A glob in the requested path could expand to a sensitive file: test whether
+  // it could overlap any sensitive pattern. Conservative: excludes (e.g. *.pub)
+  // do not clear a glob that could also hit a sensitive file.
+  if (GLOB_META.test(candidate)) {
+    let candRe: RegExp | undefined;
+    try {
+      candRe = new RegExp(`(^|/)${globToRegex(candidate.replace(/^~\//, ''))}$`, 'i');
+    } catch {
+      return true; // unparseable glob near a path: treat as sensitive
+    }
+    for (const raw of patterns) {
+      const t = raw.trim();
+      if (!t || t.startsWith('!')) continue;
+      const rep = representativePath(t.replace(/^~\//, '').replace(/^\//, ''));
+      if (candRe.test(rep) || candRe.test('/' + rep)) return true;
+    }
+  }
+  return false;
 }
 
 export function isSystemPath(path: string): boolean {
-  const p = pathCandidate(path);
+  const p = normalizePathForCheck(path);
   if (SYSTEM_TOP_DIRS.has(p.replace(/\/+$/, ''))) return true;
   return SYSTEM_PREFIXES.some((prefix) => p.startsWith(prefix));
+}
+
+/**
+ * Builds an allowlist entry that matches exactly one command. If the command
+ * contains glob metacharacters they are escaped (stored as an anchored regex)
+ * so "always allow" can never widen into a wildcard.
+ */
+export function exactCommandPattern(command: string): string {
+  const np = normalizeCommand(command);
+  if (!/[*?[\]]/.test(np)) return np; // plain string: matchCommandPattern compares literally
+  return `/^${np.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$/`;
 }
 
 export function matchCommandPattern(command: string, pattern: string): boolean {
@@ -716,7 +1001,7 @@ function checkPathWord(ctx: Ctx, word: string) {
 }
 
 function checkWriteTarget(ctx: Ctx, target: string) {
-  const t = pathCandidate(target);
+  const t = normalizePathForCheck(target);
   if (DEVICE_TARGET.test(t)) push(ctx, 'device-overwrite', t);
   else if (LOG_TARGET.test(t)) push(ctx, 'history-tamper', t);
   if (SSH_LOCKOUT_PATH.test(t)) push(ctx, 'ssh-lockout', t);
@@ -985,6 +1270,15 @@ function segmentDanger(ctx: Ctx, prog: string, args: string[]) {
       for (const t of positionals(args)) checkWriteTarget(ctx, t);
       break;
     case 'sed':
+      if (hasShort(args, 'i', 'efl') || hasLong(args, '--in-place')) {
+        for (const t of positionals(args, 'efl').slice(1)) checkWriteTarget(ctx, t);
+      }
+      for (const s of sedScripts(args)) {
+        const scan = scanSedScript(s);
+        for (const w of scan.writes) checkWriteTarget(ctx, w);
+        for (const r of scan.reads) checkPathWord(ctx, r);
+      }
+      break;
     case 'perl':
       if (hasShort(args, 'i', 'efl') || hasLong(args, '--in-place')) {
         for (const t of positionals(args, 'efl').slice(1)) checkWriteTarget(ctx, t);
@@ -1139,6 +1433,8 @@ function analyzeSegment(ctx: Ctx, seg: Segment, depth: number): { prog?: string;
       if (inline >= 0) readsStdinAsCode = false;
     }
   } else if (['ssh', 'scp', 'sftp', 'mosh', 'telnet', 'nc', 'ncat', 'netcat', 'socat', 'rsh', 'rlogin'].includes(prog)) {
+    push(ctx, 'network-tool', prog);
+  } else if (NET_DIAG.has(prog)) {
     push(ctx, 'network-tool', prog);
   } else if (DOWNLOADERS.has(prog)) {
     push(ctx, 'network-tool', prog);

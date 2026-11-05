@@ -6,7 +6,7 @@
 import { McpServer, type CallToolResult, type ServerContext } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import type { AuditEntry, CommandAssessment, Host, PolicyCause, RiskLevel } from '../../shared/types';
-import { assessCommand, describeReason } from '../../shared/command-policy';
+import { assessCommand, describeReason, exactCommandPattern } from '../../shared/command-policy';
 import { decideCommand, decideFileRead, decideFileWrite, decideListDirectory, decideSnippet, type Decision } from '../../shared/policy';
 import { detokenize } from '../../shared/redaction';
 import { MCP_SERVER_NAME } from '../../shared/defaults';
@@ -172,8 +172,9 @@ export function createMcpServer(gw: GatewayService, session: SessionCtx, appVers
   const applyRemember = (host: Host, command: string, remember?: boolean, grant?: boolean) => {
     if (remember) {
       const fresh = gw.deps.store.getHost(host.id);
-      if (fresh && !fresh.ai.allowPatterns.includes(command)) {
-        gw.deps.store.patchHost(host.id, { ai: { ...fresh.ai, allowPatterns: [...fresh.ai.allowPatterns, command] } });
+      const pattern = exactCommandPattern(command);
+      if (fresh && !fresh.ai.allowPatterns.includes(pattern)) {
+        gw.deps.store.patchHost(host.id, { ai: { ...fresh.ai, allowPatterns: [...fresh.ai.allowPatterns, pattern] } });
       }
     }
     if (grant) gw.approvals.grant(host.id, host.alias, gw.settings.ai.grantMinutes);

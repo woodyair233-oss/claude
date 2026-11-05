@@ -8,7 +8,7 @@
 // refused access.
 
 import { EventEmitter } from 'node:events';
-import { createCipheriv, createDecipheriv, randomBytes, scrypt as scryptCb, type ScryptOptions } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, scrypt as scryptCb, type ScryptOptions } from 'node:crypto';
 import { safeStorage } from 'electron';
 import { readJsonSync, writeFileAtomic } from './fsutil';
 
@@ -99,6 +99,16 @@ export class Vault extends EventEmitter {
 
   get unlocked(): boolean {
     return this.state === 'unlocked';
+  }
+
+  /**
+   * Derives a purpose-specific 32-byte key from the vault key (undefined when
+   * locked). Used e.g. to key the audit-log HMAC chain so the tamper-evidence
+   * cannot be recomputed without unlocking the vault.
+   */
+  deriveKey(info: string): Buffer | undefined {
+    if (!this.dek) return undefined;
+    return Buffer.from(hkdfSync('sha256', this.dek, Buffer.from('gatehouse.v1'), Buffer.from(info), 32));
   }
 
   private async detectBackend(): Promise<VaultBackend> {
