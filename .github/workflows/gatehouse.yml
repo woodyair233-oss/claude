@@ -15,6 +15,11 @@ on:
       - '.github/workflows/gatehouse.yml'
   workflow_dispatch:
 
+# Least privilege by default; only the macOS job (which publishes the release
+# on gatehouse-v* tags) gets write access to repository contents.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: Gatehouse
@@ -65,7 +70,9 @@ jobs:
     name: macOS app (arm64 + x64)
     needs: test
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -78,6 +85,18 @@ jobs:
           go-version: '1.24'
           cache: false
       - run: npm ci
+      - name: Check tag matches app version
+        if: startsWith(github.ref, 'refs/tags/gatehouse-v')
+        id: rel
+        run: |
+          version="${GITHUB_REF_NAME#gatehouse-v}"
+          pkg=$(node -p "require('./package.json').version")
+          echo "tag version: $version · package.json: $pkg"
+          if [ "$version" != "$pkg" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build bridge, main and renderer
         run: npm run build
       - name: Package (ad-hoc signed DMG + zip)
@@ -94,6 +113,16 @@ jobs:
             echo "Gatehouse:   $(lipo -archs "$app/Contents/MacOS/Gatehouse")"
             echo "gatehouse-mcp: $(lipo -archs "$app/Contents/Resources/bin/gatehouse-mcp")"
           done
+      - name: Verify DMG images
+        run: |
+          for dmg in release/Gatehouse-*.dmg; do
+            echo "== $dmg"
+            hdiutil verify "$dmg"
+          done
+      - name: Checksums
+        run: |
+          cd release
+          shasum -a 256 Gatehouse-*.dmg | tee SHA256SUMS.txt
       - name: Upload DMG (Apple Silicon)
         uses: actions/upload-artifact@v7
         with:
@@ -106,28 +135,54 @@ jobs:
           path: Gatehouse/release/Gatehouse-*-x64.dmg
           archive: false
           if-no-files-found: error
-      - name: Smoke test the packaged app on macOS
+      - name: Smoke test the apps inside the DMGs
         run: |
-          export GATEHOUSE_HOME="$RUNNER_TEMP/gatehouse-home"
-          app="release/mac-arm64/Gatehouse.app"
-          "$app/Contents/MacOS/Gatehouse" --hidden > "$RUNNER_TEMP/app.log" 2>&1 &
-          pid=$!
-          for i in $(seq 1 90); do
-            [ -S "$GATEHOUSE_HOME/run/mcp.sock" ] && break
-            sleep 1
+          # Tests exactly what users download: mount each DMG, launch the app
+          # from it, and drive a real MCP handshake through its bundled bridge.
+          smoke() {
+            local app="$1" label="$2"
+            local home="$RUNNER_TEMP/gatehouse-home-$label"
+            rm -rf "$home" && mkdir -p "$home"
+            GATEHOUSE_HOME="$home" "$app/Contents/MacOS/Gatehouse" --hidden > "$RUNNER_TEMP/app-$label.log" 2>&1 &
+            local pid=$!
+            for i in $(seq 1 120); do
+              [ -S "$home/run/mcp.sock" ] && break
+              sleep 1
+            done
+            GATEHOUSE_HOME="$home" "$app/Contents/Resources/bin/gatehouse-mcp" --doctor
+            printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+              '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+              '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+              | (cat; sleep 3) | GATEHOUSE_HOME="$home" "$app/Contents/Resources/bin/gatehouse-mcp" --no-launch | tee "$RUNNER_TEMP/mcp-$label.out"
+            grep -q '"run_command"' "$RUNNER_TEMP/mcp-$label.out"
+            echo "tools reported: $(grep -o '"name":"[a-z_]*"' "$RUNNER_TEMP/mcp-$label.out" | sort -u | tr '\n' ' ')"
+            kill "$pid" || true
+            wait "$pid" 2>/dev/null || true
+            echo "--- $label app log"; tail -n 20 "$RUNNER_TEMP/app-$label.log" || true
+          }
+          for arch in arm64 x64; do
+            if [ "$arch" = x64 ] && ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+              echo "::notice::Rosetta 2 is not available on this runner; skipping the x64 launch test (signature and DMG checks above still covered it)."
+              continue
+            fi
+            dmg=$(ls release/Gatehouse-*-"$arch".dmg)
+            mnt=$(mktemp -d)
+            echo "== $dmg"
+            hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg"
+            smoke "$mnt/Gatehouse.app" "$arch"
+            hdiutil detach "$mnt" || hdiutil detach -force "$mnt"
           done
-          "$app/Contents/Resources/bin/gatehouse-mcp" --doctor
-          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
-            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
-            '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
-            | (cat; sleep 3) | "$app/Contents/Resources/bin/gatehouse-mcp" --no-launch | tee "$RUNNER_TEMP/mcp.out"
-          grep -q '"run_command"' "$RUNNER_TEMP/mcp.out"
-          kill $pid || true
-          echo "--- app log"; tail -n 40 "$RUNNER_TEMP/app.log" || true
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/gatehouse-v')
         uses: softprops/action-gh-release@v2
         with:
+          name: Gatehouse ${{ steps.rel.outputs.version }}
+          body_path: Gatehouse/docs/release-notes/${{ github.ref_name }}.md
           files: |
-            Gatehouse/release/*.dmg
-            Gatehouse/release/*.zip
+            Gatehouse/release/Gatehouse-*-arm64.dmg
+            Gatehouse/release/Gatehouse-*-x64.dmg
+            Gatehouse/release/SHA256SUMS.txt
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+          make_latest: true

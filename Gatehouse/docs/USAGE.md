@@ -7,9 +7,10 @@ Claude（或任何 MCP 客户端）只能通过 Gatehouse 提供的工具访问�
 
 ## 1. 安装与首次启动
 
-1. 下载对应架构的安装包：
+1. 到正式版下载页 <https://github.com/woodyair233-oss/claude/releases/tag/gatehouse-v1.0.0> 下载对应架构的安装包：
    - Apple 芯片（M 系列）：`Gatehouse-1.0.0-arm64.dmg`
    - Intel Mac：`Gatehouse-1.0.0-x64.dmg`
+   - 可选：一并下载 `SHA256SUMS.txt`，执行 `shasum -a 256 -c SHA256SUMS.txt --ignore-missing` 校验完整性。
 2. 打开 DMG，把 Gatehouse 拖进「应用程序」。
 3. 首次打开（应用为临时签名 / ad-hoc signature）：
    - 在「应用程序」里 **右键 → 打开**，在弹窗里再点「打开」；或
