@@ -434,6 +434,8 @@ export type ConnCause =
   | 'not-ssh'
   | 'no-greeting'
   | 'handshake-timeout'
+  | 'closed-during-setup'
+  | 'login-timeout'
   | 'algorithms'
   | 'algorithms-unsupported'
   | 'hostkey-rejected'
@@ -444,12 +446,15 @@ export type ConnCause =
   | 'auth-method'
   | 'auth-partial'
   | 'agent-missing'
+  | 'agent-empty'
   | 'key-missing'
   | 'key-passphrase'
   | 'vault-locked'
   | 'cancelled'
+  | 'interrupted'
   | 'jump'
   | 'jump-forward'
+  | 'jump-missing'
   | 'dropped'
   | 'unknown';
 
@@ -469,8 +474,10 @@ export type ConnStepCode =
   | 'ident-timeout'
   | 'probe-ssh'
   | 'probe-text'
+  | 'probe-binary'
   | 'probe-silent'
   | 'probe-closed'
+  | 'probe-failed'
   | 'kex-ok'
   | 'kex-fail'
   | 'hostkey-known'
@@ -480,6 +487,8 @@ export type ConnStepCode =
   | 'hostkey-rejected'
   | 'hostkey-revoked'
   | 'banner'
+  | 'auth-methods'
+  | 'agent-empty'
   | 'auth-try'
   | 'auth-fail'
   | 'auth-partial'
@@ -747,7 +756,7 @@ export interface HostTestResult {
   message: string;
   osInfo?: string;
   latencyMs?: number;
-  /** Set when a new connection attempt was made (absent when an open connection was reused). */
+  /** The connection-log entry: the attempt that failed, or the one that opened the connection used. */
   attemptId?: string;
   cause?: ConnCause;
   causeParams?: ConnParams;

@@ -1572,6 +1572,19 @@
   color: var(--amber);
   flex-shrink: 0;
 }
+.cl-gray {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.cl-back {
+  padding: 0 22px 8px;
+}
+.cl-verdict-detail {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
 .cl-detail {
   overflow-y: auto;
   padding: 16px 20px 20px;
@@ -1589,6 +1602,9 @@
 }
 .cl-verdict.blue {
   background: var(--blue-soft);
+}
+.cl-verdict.gray {
+  background: var(--gray-soft);
 }
 .cl-verdict-head {
   display: flex;
@@ -1613,6 +1629,9 @@
 }
 .cl-verdict.blue .cl-verdict-icon {
   color: var(--blue-fg);
+}
+.cl-verdict.gray .cl-verdict-icon {
+  color: var(--text-2);
 }
 .cl-verdict-title {
   font-size: 15px;
@@ -1804,6 +1823,12 @@
 }
 .conn-problem:hover {
   background: var(--red-soft);
+}
+.conn-problem.warn {
+  color: var(--amber-fg);
+}
+.conn-problem.warn:hover {
+  background: var(--amber-soft);
 }
 .tunnel-error {
   min-width: 0;

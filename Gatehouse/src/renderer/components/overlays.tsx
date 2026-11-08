@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
@@ -6,18 +6,36 @@ import { useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { Button, Input, useAutofocus } from './ui';
 
+// Escape closes only the top-most sheet or dialog: one window listener and a
+// stack, because separate listeners on window would all fire (stopPropagation
+// does not stop other listeners on the same target).
+const escapeStack: { close: () => void }[] = [];
+let escapeListening = false;
+function onEscapeKey(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return;
+  const top = escapeStack[escapeStack.length - 1];
+  if (!top) return;
+  e.stopPropagation();
+  e.preventDefault();
+  top.close();
+}
+
 function useEscape(onClose: () => void, enabled = true) {
+  const latest = useRef(onClose);
+  latest.current = onClose;
   useEffect(() => {
     if (!enabled) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
+    const entry = { close: () => latest.current() };
+    escapeStack.push(entry);
+    if (!escapeListening) {
+      window.addEventListener('keydown', onEscapeKey, true);
+      escapeListening = true;
+    }
+    return () => {
+      const i = escapeStack.indexOf(entry);
+      if (i >= 0) escapeStack.splice(i, 1);
     };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose, enabled]);
+  }, [enabled]);
 }
 
 export function Modal({
@@ -34,9 +52,16 @@ export function Modal({
   className?: string;
 }) {
   useEscape(onClose, dismissable);
+  const ref = useRef<HTMLDivElement>(null);
+  // Move keyboard focus into the dialog (unless a field inside already took it),
+  // so Enter and Tab do not act on whatever is underneath.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && !el.contains(document.activeElement)) el.focus();
+  }, []);
   return createPortal(
     <div className="overlay" onMouseDown={(e) => dismissable && e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${size ?? ''} ${className}`} role="dialog" aria-modal="true">
+      <div ref={ref} tabIndex={-1} className={`modal ${size ?? ''} ${className}`} role="dialog" aria-modal="true">
         {children}
       </div>
     </div>,

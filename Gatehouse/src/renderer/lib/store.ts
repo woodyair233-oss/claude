@@ -36,8 +36,8 @@ interface UiState {
   toasts: ToastItem[];
   menuCommand?: { cmd: MenuCommand; at: number };
   hostPicker?: { title: string; resolve: (hostId: string | null) => void };
-  /** The connection-log dialog: whose log, and which attempt to show first. */
-  connLog?: { hostId: string; attemptId?: string; at: number };
+  /** The connection-log dialog: whose log, which attempt to show first, and where it was opened from. */
+  connLog?: { hostId: string; attemptId?: string; at: number; from?: { hostId: string; attemptId?: string } };
 
   setSnapshot(s: AppSnapshot): void;
   applyPatch(p: SnapshotPatch): void;
@@ -52,7 +52,7 @@ interface UiState {
   setFilesHost(id?: string): void;
   toast(t: ToastInput): void;
   dismissToast(id: number): void;
-  openConnLog(hostId: string, attemptId?: string): void;
+  openConnLog(hostId: string, attemptId?: string, from?: { hostId: string; attemptId?: string }): void;
   closeConnLog(): void;
   setMenuCommand(cmd: MenuCommand): void;
   pickHost(title: string): Promise<string | null>;
@@ -99,7 +99,7 @@ export const useApp = create<UiState>((set, get) => ({
     set({ toasts: [...get().toasts, { ...t, id }].slice(-4) });
     setTimeout(() => get().dismissToast(id), t.action ? 12_000 : t.kind === 'error' ? 7000 : 4200);
   },
-  openConnLog: (hostId, attemptId) => set({ connLog: { hostId, attemptId, at: Date.now() } }),
+  openConnLog: (hostId, attemptId, from) => set({ connLog: { hostId, attemptId, at: Date.now(), from } }),
   closeConnLog: () => set({ connLog: undefined }),
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
   setMenuCommand: (cmd) => set({ menuCommand: { cmd, at: Date.now() } }),

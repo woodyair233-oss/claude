@@ -6,7 +6,7 @@ import { t } from '../lib/i18n';
 import { relativeTime } from '../lib/format';
 import { HOST_COLOR_HEX } from '../lib/themes';
 import { hostContextMenu, openTerminal } from '../lib/actions';
-import { causeTitle } from '../lib/conn';
+import { causeTitle, isBenignCause } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, EmptyState, IconButton, SearchField, Segmented } from '../components/ui';
 import { ModeBadge } from '../components/domain';
@@ -33,7 +33,9 @@ function HostAvatar({ host, size = 36 }: { host: Host; size?: number }) {
 function useConnProblem(host: Host, connected: boolean | undefined): ConnStatus | undefined {
   const st = useApp((s) => s.snap?.connStatus?.[host.id]);
   if (connected || !st) return undefined;
-  return st.outcome === 'failed' || st.dropped ? st : undefined;
+  // A prompt the user closed, or Gatehouse quitting mid-connect, is not a host problem.
+  if (st.outcome === 'failed') return isBenignCause(st.cause) ? undefined : st;
+  return st.dropped ? st : undefined;
 }
 
 function ConnProblem({ host, st }: { host: Host; st: ConnStatus }) {
@@ -41,7 +43,7 @@ function ConnProblem({ host, st }: { host: Host; st: ConnStatus }) {
   return (
     <button
       type="button"
-      className="conn-problem"
+      className={`conn-problem ${st.outcome === 'failed' ? '' : 'warn'}`}
       title={`${text} · ${t('View details')}`}
       onClick={(e) => {
         e.stopPropagation();

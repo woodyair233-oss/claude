@@ -3,7 +3,8 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import net from 'node:net';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ConnAttempt, Host } from '../../src/shared/types';
@@ -112,24 +113,29 @@ function freePort(): Promise<number> {
   });
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 d('connection diagnostics (real sshd)', () => {
   let sshd: TestSshd;
   let keyOnly: TestSshd;
+  let maxTries: TestSshd;
+  let twoStep: TestSshd;
   let rig: Rig;
   const servers: net.Server[] = [];
 
   beforeAll(async () => {
     sshd = await startSshd();
     keyOnly = await startSshd({ PasswordAuthentication: 'no' });
-    // Both servers share the test user, so its authorized_keys holds keyOnly's client key.
-    rig = makeRig(sshd, keyOnly.keyPem);
+    maxTries = await startSshd({ MaxAuthTries: '1' });
+    twoStep = await startSshd({ AuthenticationMethods: 'publickey,password' });
+    // All servers share the test user, so its authorized_keys holds the last one's client key.
+    rig = makeRig(sshd, twoStep.keyPem);
   });
 
   afterAll(() => {
     rig?.pool.disconnectAll();
     for (const s of servers) s.close();
-    sshd?.stop();
-    keyOnly?.stop();
+    for (const x of [sshd, keyOnly, maxTries, twoStep]) x?.stop();
   });
 
   it('records every step of a successful connection', async () => {
@@ -137,7 +143,8 @@ d('connection diagnostics (real sshd)', () => {
     const { a, err } = await attempt(rig, host);
     expect(err).toBeUndefined();
     expect(a.outcome).toBe('connected');
-    expect(codes(a)).toEqual(expect.arrayContaining(['tcp-ok', 'ident', 'kex-ok', 'hostkey-known', 'auth-try', 'auth-ok', 'ready']));
+    expect(codes(a)).toEqual(expect.arrayContaining(['tcp-ok', 'ident', 'kex-ok', 'hostkey-known', 'auth-methods', 'auth-try', 'auth-ok', 'ready']));
+    expect(String(a.steps.find((x) => x.code === 'auth-methods')?.params?.allowed)).toContain('publickey');
     expect(a.server).toMatch(/OpenSSH/);
     // The protocol log is only kept to explain failures.
     expect(a.log).toBeUndefined();
@@ -263,9 +270,96 @@ d('connection diagnostics (real sshd)', () => {
     const target2 = rig.addHost(sshd, { jumpHostId: badJump.id });
     const r2 = await attempt(rig, target2);
     expect(r2.a.cause).toBe('jump');
-    expect(r2.a.causeParams).toMatchObject({ jump: 'badjump' });
+    expect(r2.a.via).toBe('badjump');
+    // What Claude is told does not name the jump host (it may be hidden from Claude).
+    expect((r2.err as Error).message).not.toContain('badjump');
     // The jump host's own attempt explains why it failed.
     expect(rig.log.latest(badJump.id)?.cause).toBe('refused');
+  });
+
+  it('reports a cancel while the server-identity question is open, without a second check', async () => {
+    const host = rig.addHost(sshd, { hostname: 'localhost' });
+    rig.store.upsertKnownHost({
+      id: randomUUID(),
+      host: 'localhost',
+      port: sshd.port,
+      keyType: 'ssh-ed25519',
+      fingerprint: 'SHA256:other',
+      publicKey: 'AAAAC3NzaC1lZDI1NTE5AAAAIOtherOtherOtherOtherOtherOtherOtherOtherOther',
+      addedAt: 0,
+      lastSeenAt: 0,
+    });
+    const asked: string[] = [];
+    const onAsk = (req: { id: string }) => {
+      asked.push(req.id);
+      rig.pool.disconnect(host.id);
+    };
+    rig.prompts.on('ask', onAsk);
+    const started = Date.now();
+    const { a, err } = await attempt(rig, host);
+    rig.prompts.off('ask', onAsk);
+    for (const id of asked) rig.prompts.respond(id, { accept: false });
+    expect(asked).toHaveLength(1);
+    expect(a.cause).toBe('cancelled');
+    expect((err as Error).message).toBe('The connection was cancelled');
+    expect(codes(a).some((c) => c.startsWith('probe-'))).toBe(false);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it('stops at once when a connection to a silent port is cancelled', async () => {
+    const srv = net.createServer((sock) => sock.on('error', () => undefined));
+    servers.push(srv);
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    const host = rig.addHost(sshd, { port: (srv.address() as net.AddressInfo).port });
+    const pending = rig.pool.acquire(host.id, 'user').catch((e: unknown) => e);
+    await sleep(300);
+    const t0 = Date.now();
+    rig.pool.disconnect(host.id);
+    const err = (await pending) as { connCause?: string };
+    expect(Date.now() - t0).toBeLessThan(1500);
+    expect(err.connCause).toBe('cancelled');
+    const a = rig.log.get(rig.log.latest(host.id)!.id)!;
+    expect(codes(a).some((c) => c.startsWith('probe-'))).toBe(false);
+  });
+
+  it('clears a saved password the server refused, also when the server disconnects on failure', async () => {
+    const host = rig.addHost(maxTries, { auth: 'password' });
+    rig.passwords.set(host.id, 'Wrong-Again-1');
+    const { a } = await attempt(rig, host);
+    expect(a.cause).toBe('auth-password');
+    expect(rig.passwords.has(host.id)).toBe(false);
+  });
+
+  it('recognises a two-step login whose first step passed', async () => {
+    const host = rig.addHost(twoStep, {});
+    const { a } = await attempt(rig, host);
+    expect(a.cause).toBe('auth-partial');
+    expect(String(a.causeParams?.allowed)).toContain('password');
+    expect(codes(a)).toContain('auth-partial');
+  });
+
+  it('tells a missing SSH agent from an empty one', async () => {
+    const before = process.env.SSH_AUTH_SOCK;
+    const host = rig.addHost(sshd, { auth: 'agent' });
+    try {
+      process.env.SSH_AUTH_SOCK = `/tmp/gh-no-such-agent-${process.pid}.sock`;
+      expect((await attempt(rig, host)).a.cause).toBe('agent-missing');
+
+      const sock = `/tmp/gh-agent-${process.pid}.sock`;
+      const agent = spawn('ssh-agent', ['-D', '-a', sock], { stdio: 'ignore' });
+      try {
+        for (let i = 0; i < 50 && !existsSync(sock); i++) await sleep(100);
+        process.env.SSH_AUTH_SOCK = sock;
+        const { a } = await attempt(rig, host);
+        expect(a.cause).toBe('agent-empty');
+        expect(codes(a)).toContain('agent-empty');
+      } finally {
+        agent.kill();
+      }
+    } finally {
+      if (before === undefined) delete process.env.SSH_AUTH_SOCK;
+      else process.env.SSH_AUTH_SOCK = before;
+    }
   });
 
   it('marks a connection that drops after it was established', async () => {
@@ -280,6 +374,17 @@ d('connection diagnostics (real sshd)', () => {
     expect(a.outcome).toBe('connected');
     expect(a.endCause).toBe('dropped');
     expect(rig.log.statuses()[host.id]).toMatchObject({ dropped: true });
+  });
+
+  it('records when a connection ended, even when everything is closed at once (quit)', async () => {
+    const host = rig.addHost(sshd, {});
+    const lease = await rig.pool.acquire(host.id, 'user');
+    lease.release();
+    await sleep(1100);
+    rig.pool.disconnectAll();
+    const a = rig.log.get(lease.attemptId)!;
+    expect(a.endCause).toBe('closed');
+    expect(a.endedAt! - a.startedAt).toBeGreaterThanOrEqual(1000);
   });
 
   it('keeps the log across restarts', () => {

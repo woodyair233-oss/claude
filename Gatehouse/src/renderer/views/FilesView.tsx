@@ -23,10 +23,10 @@ import {
   X,
 } from 'lucide-react';
 import type { SftpEntry, TransferInfo } from '@shared/types';
-import { api, attempt, useApp } from '../lib/store';
+import { api, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { formatBytes, relativeTime } from '../lib/format';
-import { explainConnError } from '../lib/conn';
+import { explainConnError, hostAttempt } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, EmptyState, IconButton, Input, Progress, Select, Spinner, TextArea } from '../components/ui';
 import { HostDot } from '../components/domain';
@@ -158,7 +158,7 @@ function PermissionsDialog({ entry, hostId, onClose, onDone }: { entry: SftpEntr
   ] as const;
   const toggle = (bit: number) => setMode((m) => m ^ bit);
   const apply = async () => {
-    const ok = await attempt(() => api().sftp.chmod(hostId, entry.path, mode), t('Could not change permissions'));
+    const ok = await hostAttempt(hostId, () => api().sftp.chmod(hostId, entry.path, mode), t('Could not change permissions'));
     if (ok !== undefined) {
       onDone();
       onClose();
@@ -365,7 +365,7 @@ export function FilesView() {
   const mkdir = async () => {
     const name = await promptDialog({ title: t('New folder'), placeholder: t('Folder name') });
     if (!name || !hostId) return;
-    await attempt(() => api().sftp.mkdir(hostId, joinPath(path, name.trim())), t('Could not create folder'));
+    await hostAttempt(hostId, () => api().sftp.mkdir(hostId, joinPath(path, name.trim())), t('Could not create folder'));
     void load(path, false);
   };
 
@@ -378,26 +378,26 @@ export function FilesView() {
       danger: true,
     });
     if (!ok) return;
-    await attempt(() => api().sftp.remove(hostId, list.map((e) => e.path)), t('Could not delete'));
+    await hostAttempt(hostId, () => api().sftp.remove(hostId, list.map((e) => e.path)), t('Could not delete'));
     void load(path, false);
   };
 
   const rename = async (e: SftpEntry) => {
     const name = await promptDialog({ title: t('Rename'), initial: e.name });
     if (!name || name === e.name || !hostId) return;
-    await attempt(() => api().sftp.rename(hostId, e.path, joinPath(parentOf(e.path), name.trim())), t('Could not rename'));
+    await hostAttempt(hostId, () => api().sftp.rename(hostId, e.path, joinPath(parentOf(e.path), name.trim())), t('Could not rename'));
     void load(path, false);
   };
 
   const download = async (list: SftpEntry[]) => {
     if (!hostId || !list.length) return;
-    const ok = await attempt(() => api().sftp.download(hostId, list.map((e) => e.path)), t('Download failed'));
+    const ok = await hostAttempt(hostId, () => api().sftp.download(hostId, list.map((e) => e.path)), t('Download failed'));
     if (ok) toast({ kind: 'info', title: t('Download started') });
   };
 
   const upload = async (localPaths?: string[]) => {
     if (!hostId || !path) return;
-    const ok = await attempt(() => api().sftp.upload(hostId, path, localPaths), t('Upload failed'));
+    const ok = await hostAttempt(hostId, () => api().sftp.upload(hostId, path, localPaths), t('Upload failed'));
     if (ok) toast({ kind: 'info', title: t('Upload started') });
   };
 

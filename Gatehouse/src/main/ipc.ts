@@ -202,7 +202,7 @@ export function registerIpc(ctx: AppContext) {
     gateway.approvals.revoke(host.id);
     await vault.forgetHost(host.id).catch(() => undefined);
     store.deleteHost(host.id);
-    pool.connLog.clear(host.id);
+    pool.connLog.forget(host.id);
   });
 
   handle('hosts:duplicate', async (id: string) => {
@@ -239,7 +239,7 @@ export function registerIpc(ctx: AppContext) {
       );
       const osInfo = r.stdout.trim().split('\n').join(' ').slice(0, 80) || undefined;
       if (osInfo) store.patchHost(host.id, { osInfo });
-      return { ok: true, message: 'Connected successfully.', osInfo, latencyMs };
+      return { ok: true, message: 'Connected successfully.', osInfo, latencyMs, attemptId: lease.attemptId };
     } catch (err) {
       if (isConnectError(err)) return { ok: false, message: err.message, attemptId: err.attemptId, cause: err.connCause, causeParams: err.connParams };
       return { ok: false, message: (err as Error).message };
@@ -252,7 +252,10 @@ export function registerIpc(ctx: AppContext) {
   handle('connlog:list', (hostId?: string) => pool.connLog.list(typeof hostId === 'string' ? hostId : undefined));
   handle('connlog:get', (id: string) => pool.connLog.get(String(id)) ?? null);
   handle('connlog:latest', (hostId: string) => pool.connLog.latest(String(hostId)) ?? null);
-  handle('connlog:clear', (hostId?: string) => pool.connLog.clear(typeof hostId === 'string' ? hostId : undefined));
+  handle('connlog:clear', (hostId: string) => {
+    if (typeof hostId !== 'string' || !hostId) throw new Error('Host not found.');
+    pool.connLog.clear(hostId);
+  });
 
   handle('hosts:disconnect', (id: string) => {
     pool.disconnect(requireHost(id).id);

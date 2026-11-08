@@ -14,6 +14,8 @@ export const CONN_CAUSE_TITLE: Record<ConnCause, string> = {
   'not-ssh': 'Port {port} is not an SSH service',
   'no-greeting': 'Port {port} answered, but no SSH server responded',
   'handshake-timeout': 'The server stopped responding while setting up the connection',
+  'closed-during-setup': 'The server closed the connection during login',
+  'login-timeout': 'The login timed out while waiting for your answer',
   algorithms: 'The server only supports outdated encryption',
   'algorithms-unsupported': 'Gatehouse and the server have no encryption method in common',
   'hostkey-rejected': 'The server identity was not accepted',
@@ -24,12 +26,15 @@ export const CONN_CAUSE_TITLE: Record<ConnCause, string> = {
   'auth-method': 'The server does not allow logging in with: {method}',
   'auth-partial': 'The server needs another login step',
   'agent-missing': 'No SSH agent is running',
+  'agent-empty': 'The SSH agent has no keys',
   'key-missing': 'The selected SSH key is missing',
   'key-passphrase': 'The key passphrase was not correct',
   'vault-locked': 'Gatehouse is locked',
   cancelled: 'The connection was cancelled',
-  jump: 'The jump host {jump} could not be connected',
+  interrupted: 'Gatehouse was closed before the connection was ready',
+  jump: 'The jump host could not be connected',
   'jump-forward': 'The jump host could not reach this server',
+  'jump-missing': 'The jump host set for this host no longer exists',
   dropped: 'The connection was lost',
   unknown: 'The connection failed',
 };
@@ -42,8 +47,10 @@ export const CONN_CAUSE_HINTS: Record<ConnCause, string> = {
   unreachable: 'Check your Wi-Fi or network cable, and whether you need a VPN.\nOn macOS, allow Gatehouse under System Settings → Privacy & Security → Local Network.\nCheck that the address is right.',
   reset: 'After too many failed logins, servers often block your address for a while (for example with fail2ban). Wait, or ask the admin.\nThe server may only accept connections from certain addresses or networks.\nCheck that port {port} really is the SSH port.',
   'not-ssh': 'The port is probably wrong: SSH normally uses 22.\nAsk the admin which port the SSH service uses.',
-  'no-greeting': 'The port is probably wrong: another kind of service answered. SSH normally uses 22.\nThe server may be overloaded. Try again in a minute.\nA proxy or firewall may accept connections without passing them on.',
+  'no-greeting': 'The port is probably wrong: something accepted the connection, but it is not an SSH service. SSH normally uses 22.\nThe server may be overloaded. Try again in a minute.\nA proxy or firewall may accept connections without passing them on.',
   'handshake-timeout': 'The server may be overloaded. Try again in a minute.\nA VPN or firewall may be interrupting the connection.',
+  'closed-during-setup': 'After too many failed logins, servers often block your address for a while (for example with fail2ban). Wait, or ask the admin.\nThe server may limit who can log in, or how long a login may take.\nIf it keeps happening, ask the admin to check the server\'s login log (for example /var/log/auth.log).',
+  'login-timeout': 'Answer the password, code or confirmation window sooner: servers stop waiting after a while (often two minutes).\nTry again.',
   algorithms: 'Edit this host, open Advanced, turn on “Allow legacy algorithms”, then try again.\nBetter in the long run: ask the admin to update the server\'s SSH software.',
   'algorithms-unsupported': 'The server only offers methods Gatehouse cannot use, even with legacy algorithms turned on.\nAsk the admin to update the server\'s SSH software.',
   'hostkey-rejected': 'If you did not expect this, do not connect: the server may have been replaced. Ask the admin first.\nIf the server was reinstalled, connect again and accept the new identity.',
@@ -54,11 +61,14 @@ export const CONN_CAUSE_HINTS: Record<ConnCause, string> = {
   'auth-method': 'The server accepts: {allowed}. Edit this host and change the login method under Authentication.\nTo log in with a key, create one under Keys and ask the admin to authorize it.',
   'auth-partial': 'The server requires more than one step (for example a key plus a verification code). Still needed: {allowed}.\nAsk the admin which login methods your account needs.',
   'agent-missing': 'Start your SSH agent (or the 1Password SSH agent), or edit this host to log in with a key or password instead.',
+  'agent-empty': 'Add your key to the agent: run “ssh-add” in Terminal, or unlock 1Password.\nOr edit this host to use a key stored in Gatehouse.',
   'key-missing': 'Edit this host and choose a key again under Authentication.',
   'key-passphrase': 'Type the passphrase again. It is the one chosen when the key was created.',
   'vault-locked': 'Unlock Gatehouse, then try again.',
-  cancelled: 'A password or confirmation window was closed before the connection was ready. Try again.',
+  cancelled: 'The connection was stopped before it was ready: a password or confirmation window was closed, or the host was changed. Try again.',
+  interrupted: 'Try again.',
   jump: 'Open the jump host\'s own connection log to see why it failed.\nCheck that the jump host can be connected on its own.',
+  'jump-missing': 'Edit this host and choose another jump host, or none, under Advanced.',
   'jump-forward': 'This server\'s address and port are dialled from the jump host, not from your Mac. Check them.\nThe jump host may not allow tunnels (AllowTcpForwarding).',
   dropped: 'The network may have changed: Wi-Fi switched, the VPN reconnected, or the Mac went to sleep.\nThe server may have restarted, or closed a connection that looked idle. Try a shorter keep-alive under Advanced.',
   unknown: 'See the technical details below. Copy them and send them to your admin.',
@@ -79,8 +89,10 @@ export const CONN_STEP_TEXT: Record<ConnStepCode, string> = {
   'ident-timeout': 'No SSH greeting from the server within {sec} s',
   'probe-ssh': 'A second check received an SSH greeting: {software}',
   'probe-text': 'A second check found a different service on this port: “{banner}”',
+  'probe-binary': 'A second check found a different service on this port (it sent {bytes} bytes of binary data)',
   'probe-silent': 'A second check got no answer from this port',
   'probe-closed': 'A second check was also disconnected straight away',
+  'probe-failed': 'A second check could not connect ({code})',
   'kex-ok': 'Agreed on encryption: {kex} · {cipher}',
   'kex-fail': 'No {what} method in common. The server offers: {offered}',
   'hostkey-known': 'Server identity matches the saved fingerprint ({type})',
@@ -90,6 +102,8 @@ export const CONN_STEP_TEXT: Record<ConnStepCode, string> = {
   'hostkey-rejected': 'Server identity {fingerprint} was not accepted',
   'hostkey-revoked': 'The server key is marked as revoked in ~/.ssh/known_hosts',
   banner: 'Server message: “{text}”',
+  'auth-methods': 'The server accepts these login methods: {allowed}',
+  'agent-empty': 'The SSH agent had no keys to offer',
   'auth-try': 'Logging in as {user} with: {method}',
   'auth-fail': 'Rejected: {method}. The server accepts: {allowed}',
   'auth-partial': 'Accepted: {method}. The server also requires: {allowed}',
@@ -111,8 +125,40 @@ export const CONN_DROP_TEXT: Record<string, string> = {
   other: 'An unexpected error ended the connection.',
 };
 
-/** Steps whose text names the server address or user (blurred in privacy mode, masked in copies). */
-export const CONN_ADDRESS_STEPS: ReadonlySet<ConnStepCode> = new Set(['dns-ok', 'dns-fail', 'tcp-ok', 'tcp-fail', 'tcp-timeout', 'auth-try']);
+/** Why a jump host could not open a tunnel (from the SSH reason code). */
+export const CONN_TUNNEL_TEXT: Record<string, string> = {
+  prohibited: 'the jump host does not allow tunnels',
+  connect: 'the jump host could not connect to it',
+  type: 'the jump host does not support tunnels',
+  resources: 'the jump host is out of resources',
+  other: 'the jump host refused',
+};
+
+/** Network error codes in plain words (shown next to the code). */
+export const CONN_ERROR_CODE_TEXT: Record<string, string> = {
+  ENOTFOUND: 'no such name',
+  EAI_AGAIN: 'name server not reachable',
+  EAI_NONAME: 'no such name',
+  EAI_FAIL: 'name server failed',
+  EAI_NODATA: 'no address for the name',
+  EDNSTIMEOUT: 'look-up timed out',
+  ECONNREFUSED: 'refused',
+  ETIMEDOUT: 'timed out',
+  EHOSTUNREACH: 'host unreachable',
+  ENETUNREACH: 'network unreachable',
+  ENETDOWN: 'network is down',
+  EHOSTDOWN: 'host is down',
+  EADDRNOTAVAIL: 'address not available',
+  ECONNRESET: 'connection reset',
+  EPERM: 'not permitted',
+  EACCES: 'not permitted',
+};
+
+/** Steps whose text can name the server address or user (blurred in privacy mode, masked in copies). */
+export const CONN_ADDRESS_STEPS: ReadonlySet<ConnStepCode> = new Set(['dns-ok', 'dns-fail', 'tcp-ok', 'tcp-fail', 'tcp-timeout', 'auth-try', 'banner', 'prompt', 'probe-text']);
+
+/** Steps that quote free text the server sent; copies with addresses hidden leave that text out. */
+export const CONN_SERVER_TEXT_STEPS: ReadonlySet<ConnStepCode> = new Set(['banner', 'probe-text', 'prompt']);
 
 /** Text for the 'prompt' step, by what was asked. */
 export const CONN_PROMPT_TEXT: Record<string, string> = {

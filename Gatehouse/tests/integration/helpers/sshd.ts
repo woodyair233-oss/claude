@@ -50,7 +50,9 @@ function waitForPort(port: number, timeoutMs = 10_000): Promise<void> {
   });
 }
 
-/** `overrides` replaces sshd_config settings by keyword, e.g. { PasswordAuthentication: 'no' }. */
+const BASE_KEYS = ['Port', 'ListenAddress', 'HostKey', 'PidFile', 'AuthorizedKeysFile', 'PasswordAuthentication', 'KbdInteractiveAuthentication', 'UsePAM', 'PermitRootLogin', 'Subsystem', 'AllowTcpForwarding', 'StrictModes', 'MaxSessions', 'MaxStartups', 'LogLevel'];
+
+/** `overrides` sets sshd_config settings by keyword, e.g. { PasswordAuthentication: 'no' }. */
 export async function startSshd(overrides: Record<string, string> = {}): Promise<TestSshd> {
   const dir = mkdtempSync('/tmp/gh-sshd-');
   const user = 'ghtest';
@@ -100,7 +102,9 @@ export async function startSshd(overrides: Record<string, string> = {}): Promise
         const key = line.split(' ')[0];
         return key in overrides ? `${key} ${overrides[key]}` : line;
       })
-      .join('\n'),
+      // Settings the base config does not have are added before the trailing newline.
+      .concat(Object.entries(overrides).filter(([k]) => !BASE_KEYS.includes(k)).map(([k, v]) => `${k} ${v}`))
+      .join('\n') + '\n',
   );
   execFileSync('/usr/sbin/sshd', ['-t', '-f', config]);
   const child: ChildProcess = spawn('/usr/sbin/sshd', ['-D', '-e', '-f', config], { stdio: ['ignore', 'ignore', 'pipe'] });

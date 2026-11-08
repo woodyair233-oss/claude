@@ -14,7 +14,7 @@ import type { Vault } from '../vault';
 import type { PromptBroker } from '../prompts';
 import { blobKeyType, fingerprintBlob, KeyError, parsePrivateKey } from './keys';
 import { checkSystemKnownHosts } from './known-hosts';
-import { cleanServerText, ConnLog, ConnPrepError, ConnTrace, dropReason, IDENT_TIMEOUT_MS, keyTypeLabel, openSocket, probePort, resolveHost } from './diagnostics';
+import { cleanMethods, cleanServerText, ConnLog, ConnPrepError, ConnTrace, dropReason, IDENT_TIMEOUT_MS, keyTypeLabel, openSocket, probePort, resolveHost, tunnelReason } from './diagnostics';
 // ssh2 keeps its algorithm tables here; used to drop names this runtime cannot use.
 import constants from 'ssh2/lib/protocol/constants.js';
 
@@ -64,6 +64,16 @@ const LEGACY = {
   hmac: ['hmac-sha1'],
 };
 
+/** Everything Gatehouse could offer with legacy algorithms on, by kind (for the diagnosis). */
+let legacyOfferCache: Record<string, string[]> | undefined;
+function legacyOffer(): Record<string, string[]> {
+  if (!legacyOfferCache) {
+    const a = algorithms(true) as unknown as Record<'kex' | 'cipher' | 'serverHostKey' | 'hmac', string[]>;
+    legacyOfferCache = { kex: a.kex, hostKey: a.serverHostKey, cipher: a.cipher, mac: a.hmac };
+  }
+  return legacyOfferCache;
+}
+
 function algorithms(legacy: boolean): ConnectConfig['algorithms'] {
   const pick = (list: string[], supported: string[]) => list.filter((a) => supported.includes(a));
   const merge = (a: string[], b: string[]) => (legacy ? [...a, ...b] : a);
@@ -112,6 +122,10 @@ interface Pooled {
   trace: ConnTrace;
   /** Why a live connection failed, if it did (recorded when it closes). */
   lastError?: string;
+  /** The transport under ssh2 (our TCP socket or the jump host's channel), to abort a pending attempt. */
+  sock?: { destroy(): void };
+  /** Clears a saved password the server refused. */
+  rollback?: () => Promise<void>;
 }
 
 export interface Lease {
@@ -206,6 +220,19 @@ export class ConnectionManager extends EventEmitter {
     p.closed = true;
     this.pool.delete(hostId);
     if (p.idleTimer) clearTimeout(p.idleTimer);
+    if (p.connectedAt) {
+      // Record the end now: on quit the log is saved before any 'close' event arrives.
+      p.trace.ended('closed');
+    } else {
+      // Still connecting: say so, and abort at once. After end(), ssh2 can no
+      // longer destroy the socket itself, and a silent peer would hold it open.
+      p.trace.cancelled = true;
+      try {
+        p.sock?.destroy();
+      } catch {
+        /* ignore */
+      }
+    }
     try {
       p.client.end();
     } catch {
@@ -223,19 +250,29 @@ export class ConnectionManager extends EventEmitter {
     const client = new Client();
     const jumpHost = host.jumpHostId ? this.deps.store.getHost(host.jumpHostId) : undefined;
     const trace = this.connLog.begin(host, initiatedBy, jumpHost ? { alias: jumpHost.alias, id: jumpHost.id } : undefined);
+    trace.legacyOffer = legacyOffer();
     const pooled: Pooled = { hostId: host.id, client, refs: 0, closed: false, ready: Promise.resolve(client), trace };
     pooled.ready = this.connect(host, client, pooled, initiatedBy, chain).catch(async (err) => {
       // Explain the failure before reporting it: a port that accepted the
-      // connection but never spoke SSH gets a second, quick look.
-      if (trace.stage === 'ident' && !host.jumpHostId && trace.addresses.length && !trace.done) {
-        trace.probe = await probePort(trace.addresses[0], host.port, this.deps.timeouts?.probeMs);
+      // connection but never spoke SSH gets a second, quick look (at the
+      // address that answered) — unless the user cancelled.
+      const address = trace.connectedAddress ?? trace.addresses[0];
+      if (trace.stage === 'ident' && !trace.cancelled && !host.jumpHostId && address && !trace.done) {
+        trace.probe = await probePort(address, host.port, this.deps.timeouts?.probeMs);
         const pr = trace.probe;
         if (pr.kind === 'ssh') trace.step('probe-ssh', 'info', { software: pr.software });
         else if (pr.kind === 'text') trace.step('probe-text', 'info', { banner: pr.banner });
+        else if (pr.kind === 'binary') trace.step('probe-binary', 'info', { bytes: pr.bytes });
         else if (pr.kind === 'silent') trace.step('probe-silent', 'info');
-        else trace.step('probe-closed', 'info');
+        else if (pr.kind === 'closed') trace.step('probe-closed', 'info');
+        else trace.step('probe-failed', 'info', { code: pr.code });
       }
-      throw trace.failed(err, host.port);
+      const failure = trace.failed(err, host.port);
+      // A saved password the server refused is stale: clear it so the next
+      // attempt asks again. Not after a network error, and not when the
+      // password passed but a second step (a code) failed.
+      if (failure.connCause === 'auth-password' && !trace.partial) await pooled.rollback?.().catch(() => undefined);
+      throw failure;
     });
     pooled.ready.catch(() => undefined);
     return pooled;
@@ -245,12 +282,18 @@ export class ConnectionManager extends EventEmitter {
     const trace = pooled.trace;
     if (chain.includes(host.id)) throw new Error('Jump host loop detected.');
     if (chain.length > MAX_JUMP_DEPTH) throw new Error('Too many chained jump hosts.');
+    if (host.jumpHostId && !this.deps.store.getHost(host.jumpHostId)) {
+      throw new ConnPrepError('The jump host set for this host no longer exists.', 'jump-missing');
+    }
 
     // Build auth first: a cancelled prompt, locked vault or missing key must not
     // leak the jump-host lease and its forwarded channel.
     const plan = await this.buildAuth(host, initiatedBy, trace);
     if (pooled.closed) throw new Error('Connection was cancelled.');
-    const authQueue = [...plan.methods];
+    pooled.rollback = plan.rollback;
+    // Like OpenSSH, start with "none": the server's reply lists the login
+    // methods it accepts, which the diagnosis needs. It is not counted as a failure.
+    const authQueue: AnyAuthMethod[] = [{ type: 'none', username: host.username } as AnyAuthMethod, ...plan.methods];
     let triedInteractive = host.auth === 'interactive';
 
     let sock: NodeJS.ReadableStream | undefined;
@@ -276,8 +319,8 @@ export class ConnectionManager extends EventEmitter {
           jump.client.forwardOut('127.0.0.1', 0, host.hostname, host.port, (err, stream) => {
             if (err) {
               trace.tunnelFailed = true;
-              trace.step('tunnel-fail', 'fail', { port: host.port, reason: cleanServerText(err.message.replace(/^\(SSH\) Channel open failure: /, ''), 120) });
-              return reject(new Error(`Jump host could not reach ${host.alias}: ${err.message}`));
+              trace.step('tunnel-fail', 'fail', { port: host.port, reason: tunnelReason(err as { reason?: unknown }) });
+              return reject(new Error(`Jump host could not reach ${host.alias}: ${cleanServerText(err.message, 160)}`));
             }
             try {
               assertSaneChannel(stream);
@@ -305,6 +348,7 @@ export class ConnectionManager extends EventEmitter {
       }
       sock = tcp;
     }
+    pooled.sock = sock as unknown as { destroy(): void };
     trace.stage = 'ident';
 
     const config: ConnectConfig = {
@@ -322,33 +366,46 @@ export class ConnectionManager extends EventEmitter {
       hostVerifier: (key: Buffer, verify: (ok: boolean) => void) => {
         this.verifyHostKey(host, key, initiatedBy, trace).then(verify, () => verify(false));
       },
-      authHandler: ((methodsLeft: string[] | null, partial: boolean, next: (m: AnyAuthMethod | false) => void) => {
+      authHandler: ((methodsLeft: string[] | null, partial: boolean | null, next: (m: AnyAuthMethod | false) => void) => {
         trace.stage = 'auth';
         const label = (m: AnyAuthMethod) => (m.type === 'agent' ? 'agent' : m.type);
+        // The server's latest refusal. ssh2 passes it for most methods; after
+        // agent keys it passes a stale list, so prefer what the protocol log says.
+        const serverList = trace.latestRefusal ?? cleanMethods(methodsLeft);
         // Each call after the first reports how the previous method went.
-        if (trace.lastMethod) {
-          const allowed = (methodsLeft ?? []).filter((m) => m !== 'none');
-          trace.allowed = allowed;
-          if (partial) {
+        if (trace.lastMethod === 'none') {
+          trace.initialAllowed = serverList;
+          trace.allowed = serverList;
+          if (serverList.length) trace.step('auth-methods', 'info', { allowed: serverList.join(', ') });
+        } else if (trace.lastMethod) {
+          trace.allowed = serverList;
+          const agentPartial =
+            trace.lastMethod === 'agent' && !!trace.initialAllowed?.includes('publickey') && serverList.length > 0 && !serverList.includes('publickey');
+          if (trace.lastMethod === 'agent' && !trace.agentKeysTried) {
+            trace.step('agent-empty', 'fail');
+          } else if (partial || agentPartial) {
             trace.partial = true;
-            trace.step('auth-partial', 'info', { method: trace.lastMethod, allowed: allowed.join(', ') });
+            trace.step('auth-partial', 'info', { method: trace.lastMethod, allowed: serverList.join(', ') });
           } else {
-            trace.step('auth-fail', 'fail', { method: trace.lastMethod, allowed: allowed.join(', ') });
+            trace.step('auth-fail', 'fail', { method: trace.lastMethod, allowed: serverList.join(', ') });
           }
         }
-        const tryMethod = (m: AnyAuthMethod) => {
+        const tryMethod = (m: AnyAuthMethod, fallback = false) => {
           const name = label(m);
-          trace.firstMethod ??= name;
-          if (trace.partial) trace.triedAfterPartial = true;
           trace.lastMethod = name;
-          trace.step('auth-try', 'info', { user: host.username, method: name });
+          if (name !== 'none') {
+            trace.firstMethod ??= name;
+            if (trace.partial) trace.triedAfterPartial = true;
+            else if (fallback) trace.fallback = true;
+            trace.step('auth-try', 'info', { user: host.username, method: name });
+          }
           return next(m);
         };
         const method = authQueue.shift();
         if (method) return tryMethod(method);
-        if (!triedInteractive && (methodsLeft ?? []).includes('keyboard-interactive')) {
+        if (!triedInteractive && serverList.includes('keyboard-interactive')) {
           triedInteractive = true;
-          return tryMethod(this.keyboardInteractive(host, initiatedBy, trace));
+          return tryMethod(this.keyboardInteractive(host, initiatedBy, trace), true);
         }
         trace.step('auth-exhausted', 'fail');
         return next(false);
@@ -366,6 +423,7 @@ export class ConnectionManager extends EventEmitter {
         trace.identTimedOut = true;
         trace.step('ident-timeout', 'fail', { sec: Math.round(identMs / 1000) });
         try {
+          pooled.sock?.destroy();
           client.destroy();
         } catch {
           /* ignore */
@@ -411,11 +469,8 @@ export class ConnectionManager extends EventEmitter {
           clearTimeout(identTimer);
           pooled.closed = true;
           pooled.releaseJump?.();
-          // A saved password that just failed is stale: clear it so the next
-          // attempt prompts again instead of silently reusing it. Only after the
-          // server refused the login: a network error says nothing about the password.
-          if ((err as { level?: string }).level === 'client-authentication') void plan.rollback?.().catch(() => undefined);
-          // The raw error goes to the classifier (dial() turns it into a ConnectError).
+          // The raw error goes to the classifier; dial() turns it into a
+          // ConnectError and decides whether a saved password was stale.
           reject(err);
         } else {
           pooled.lastError = dropReason(err);
@@ -446,6 +501,13 @@ export class ConnectionManager extends EventEmitter {
       } catch (err) {
         settled = true;
         clearTimeout(identTimer);
+        pooled.closed = true;
+        try {
+          pooled.sock?.destroy();
+        } catch {
+          /* ignore */
+        }
+        pooled.releaseJump?.();
         reject(err);
       }
     });
@@ -583,12 +645,16 @@ export class ConnectionManager extends EventEmitter {
   }
 
   private async verifyHostKey(host: Host, blob: Buffer, initiatedBy: Initiator, trace: ConnTrace): Promise<boolean> {
-    trace.stage = 'hostkey';
+    // ssh2 checks the host key again on every rekey, long after the attempt finished.
+    const during = !trace.done;
+    if (during) trace.stage = 'hostkey';
     const fingerprint = fingerprintBlob(blob);
     const keyType = blobKeyType(blob);
     const ok = await this.checkHostKey(host, blob, fingerprint, keyType, initiatedBy, trace);
-    if (!ok) trace.hostKeyRejected = true;
-    trace.stage = 'kex';
+    if (during && !trace.done) {
+      if (!ok) trace.hostKeyRejected = true;
+      trace.stage = 'kex';
+    }
     return ok;
   }
 

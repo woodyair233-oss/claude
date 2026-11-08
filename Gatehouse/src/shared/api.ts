@@ -77,7 +77,8 @@ export interface GatehouseApi {
     list(hostId?: string): Promise<ConnAttempt[]>;
     get(id: string): Promise<ConnAttempt | null>;
     latest(hostId: string): Promise<ConnAttempt | null>;
-    clear(hostId?: string): Promise<void>;
+    /** Clears one host's history (attempts still running and open connections stay). */
+    clear(hostId: string): Promise<void>;
   };
 
   terminal: {

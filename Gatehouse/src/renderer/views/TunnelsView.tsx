@@ -4,7 +4,7 @@ import type { ForwardDraft, ForwardType, PortForward } from '@shared/types';
 import { api, attempt, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { formatBytes } from '../lib/format';
-import { causeTitle } from '../lib/conn';
+import { causeTitle, hostAttempt } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, Callout, EmptyState, Field, IconButton, Input, Segmented, Select, Switch } from '../components/ui';
 import { HostDot } from '../components/domain';
@@ -106,7 +106,8 @@ export function TunnelsView() {
   const [editing, setEditing] = useState<PortForward | 'new' | null>(null);
 
   const toggle = async (f: PortForward, on: boolean) => {
-    await attempt(() => (on ? api().forwards.start(f.id) : api().forwards.stop(f.id)), on ? t('Could not start tunnel') : t('Could not stop tunnel'));
+    if (on) await hostAttempt(f.hostId, () => api().forwards.start(f.id), t('Could not start tunnel'));
+    else await attempt(() => api().forwards.stop(f.id), t('Could not stop tunnel'));
   };
   const remove = async (f: PortForward) => {
     if (await confirmDialog({ title: t('Delete tunnel "{name}"?', { name: f.name }), confirmLabel: t('Delete'), danger: true })) {

@@ -170,7 +170,10 @@ export class TerminalManager extends EventEmitter {
       clearTimeout(s.flushTimer);
       this.flush(s);
     }
-    if (s.info.state === 'closed') return;
+    // Already ended. In particular, a dropped connection is reported (as an
+    // error) before its channel closes; that later close must not turn it
+    // into an ordinary "session ended".
+    if (s.info.state === 'closed' || s.info.state === 'error') return;
     s.info = { ...s.info, state: error ? 'error' : 'closed', error };
     s.stream = undefined;
     s.lease?.release();
