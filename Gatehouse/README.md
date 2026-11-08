@@ -86,10 +86,10 @@ Claude ──MCP(stdio)──▶ gatehouse-mcp ──私有 Unix 套接字 + 令
 
 ## 安装
 
-1. 到正式版下载页：**[Gatehouse 1.0.0 Release](https://github.com/woodyair233-oss/claude/releases/tag/gatehouse-v1.0.0)**（开发中的构建也可以在 **Actions → Gatehouse** 最新一次成功运行的 Artifacts 里找到）。
+1. 到正式版下载页：**[Gatehouse 最新正式版](https://github.com/woodyair233-oss/claude/releases/latest)**（开发中的构建也可以在 **Actions → Gatehouse** 最新一次成功运行的 Artifacts 里找到）。
 2. 下载对应的 DMG：
-   - Apple 芯片（M1 及以后）：`Gatehouse-1.0.0-arm64.dmg`
-   - Intel 芯片：`Gatehouse-1.0.0-x64.dmg`
+   - Apple 芯片（M1 及以后）：`Gatehouse-1.1.0-arm64.dmg`
+   - Intel 芯片：`Gatehouse-1.1.0-x64.dmg`
    - 可选校验：和 DMG 放在同一目录下载 `SHA256SUMS.txt`，在“终端”执行 `shasum -a 256 -c SHA256SUMS.txt --ignore-missing`，显示 `OK` 即文件完整。
 3. 打开 DMG，把 Gatehouse 拖进“应用程序”文件夹。
 4. **首次打开**：应用没有 Apple 开发者签名（只有临时签名，ad-hoc signature），macOS 会先阻止它打开：

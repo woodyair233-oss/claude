@@ -298,7 +298,11 @@ d('connection diagnostics (real sshd)', () => {
     const started = Date.now();
     const { a, err } = await attempt(rig, host);
     rig.prompts.off('ask', onAsk);
-    for (const id of asked) rig.prompts.respond(id, { accept: false });
+    // The question was withdrawn from the screen when the attempt was cancelled…
+    expect(rig.prompts.list()).toEqual([]);
+    // …and a late answer is ignored (it used to throw inside ssh2).
+    for (const id of asked) rig.prompts.respond(id, { accept: true });
+    await sleep(100);
     expect(asked).toHaveLength(1);
     expect(a.cause).toBe('cancelled');
     expect((err as Error).message).toBe('The connection was cancelled');

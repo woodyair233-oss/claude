@@ -15,11 +15,14 @@ interface Pending {
 export class PromptBroker extends EventEmitter {
   private pending = new Map<string, Pending>();
 
-  ask(input: PromptInput, timeoutMs = 180_000): Promise<PromptResponse> {
+  /** Shows a question in the UI. Aborting `signal` withdraws it (answers it with null). */
+  ask(input: PromptInput, timeoutMs = 180_000, signal?: AbortSignal): Promise<PromptResponse> {
+    if (signal?.aborted) return Promise.resolve(null);
     const req = { ...input, id: randomUUID() } as PromptRequest;
     return new Promise((resolve) => {
       const timer = setTimeout(() => this.finish(req.id, null), timeoutMs);
       this.pending.set(req.id, { req, resolve, timer });
+      signal?.addEventListener('abort', () => this.finish(req.id, null), { once: true });
       this.emit('change');
       this.emit('ask', req);
     });
