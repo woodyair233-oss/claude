@@ -91,10 +91,11 @@ Claude ──MCP(stdio)──▶ gatehouse-mcp ──私有 Unix 套接字 + 令
    - Intel 芯片：`Gatehouse-1.0.0-x64.dmg`
    - 可选校验：和 DMG 放在同一目录下载 `SHA256SUMS.txt`，在“终端”执行 `shasum -a 256 -c SHA256SUMS.txt --ignore-missing`，显示 `OK` 即文件完整。
 3. 打开 DMG，把 Gatehouse 拖进“应用程序”文件夹。
-4. **首次打开**：应用没有 Apple 开发者签名（只有临时签名，ad-hoc signature），macOS 会阻止它打开。可以选择以下任一方式：
-   - 在“应用程序”中按住 Control 点按 Gatehouse，选择“打开”；
-   - 或者到“系统设置 → 隐私与安全性”，点“仍要打开”；
-   - 或者在“终端”中执行：
+4. **首次打开**：应用没有 Apple 开发者签名（只有临时签名，ad-hoc signature），macOS 会先阻止它打开：
+   - 先双击 Gatehouse，出现无法打开的提示时点“完成”（不要点“移到废纸篓”）；
+   - 再到“系统设置 → 隐私与安全性”，在下方“安全性”里点 Gatehouse 旁边的“仍要打开”，用登录密码或 Touch ID 确认。这个按钮只在被阻止后约一小时内出现；
+   - macOS 14 及更早版本也可以在“应用程序”中按住 Control 点按 Gatehouse，选择“打开”（macOS 15 起这个方法不再有效）；
+   - 如果提示“已损坏”或找不到“仍要打开”，在“终端”中执行：
      ```bash
      xattr -dr com.apple.quarantine /Applications/Gatehouse.app
      ```
