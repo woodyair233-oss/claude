@@ -40,6 +40,14 @@ jobs:
         with:
           go-version: '1.24'
           cache: false
+      # The Electron binary comes from GitHub releases, which sometimes time out:
+      # keep it between runs, and retry the download below.
+      - name: Cache Electron download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: electron-linux-${{ hashFiles('Gatehouse/package-lock.json') }}
+          restore-keys: electron-linux-
       - run: npm ci
       - run: npm run build:bridge
       - run: npm run typecheck
@@ -57,6 +65,12 @@ jobs:
           sudo apt-get install -y -qq xvfb
           # Playwright drives Electron directly; no browser download needed.
           npm install --no-save playwright@1.63.0
+          for i in 1 2 3 4; do
+            node node_modules/electron/install.js && break
+            echo "::warning::Electron download failed (attempt $i), retrying"
+            sleep $((i * 20))
+          done
+          node -e "require('electron')" >/dev/null
           sudo -E env "PATH=$PATH" xvfb-run -a node tests/e2e/ui.cjs "$RUNNER_TEMP/shots"
       - name: Upload screenshots
         if: always()
@@ -84,6 +98,14 @@ jobs:
         with:
           go-version: '1.24'
           cache: false
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-mac-${{ hashFiles('Gatehouse/package-lock.json') }}
+          restore-keys: electron-mac-
       - run: npm ci
       - name: Check tag matches app version
         if: startsWith(github.ref, 'refs/tags/gatehouse-v')
@@ -100,7 +122,15 @@ jobs:
       - name: Build bridge, main and renderer
         run: npm run build
       - name: Package (ad-hoc signed DMG + zip)
-        run: npx electron-builder --mac --publish never
+        run: |
+          # electron-builder downloads Electron from GitHub releases; retry transient failures.
+          for i in 1 2 3; do
+            npx electron-builder --mac --publish never && exit 0
+            echo "::warning::electron-builder failed (attempt $i), retrying"
+            rm -rf release
+            sleep $((i * 30))
+          done
+          exit 1
       - name: Verify code signatures
         run: |
           for arch in arm64 x64; do
