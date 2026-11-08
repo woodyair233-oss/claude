@@ -924,7 +924,7 @@
   box-shadow: var(--shadow-md);
 }
 .gw-hero.paused {
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--red) 15%, transparent), transparent 55%), var(--bg-elevated);
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--amber) 16%, transparent), transparent 55%), var(--bg-elevated);
 }
 .gw-hero-icon {
   width: 58px;
@@ -938,8 +938,8 @@
   flex-shrink: 0;
 }
 .paused .gw-hero-icon {
-  background: linear-gradient(145deg, #f0443a, #c2410c);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--red) 35%, transparent);
+  background: linear-gradient(145deg, #f59a0b, #c2410c);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--amber) 35%, transparent);
 }
 .gw-hero-title {
   font-size: 20px;

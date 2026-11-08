@@ -1,5 +1,6 @@
 // Simplified Chinese strings, keyed by the English source text.
 export const ZH: Record<string, string> = {
+  'Hidden from Claude. It cannot see or use this host.': '对 Claude 隐藏：它看不到、也用不了这台主机。',
   'This alias looks like the hostname or IP — Claude would see it. Consider a neutral name.':
     '这个别名看起来像主机名或 IP，Claude 将会看到它。建议改用中性名称。',
   'Jump host(s) not imported: {list}': '未导入以下跳板机：{list}',

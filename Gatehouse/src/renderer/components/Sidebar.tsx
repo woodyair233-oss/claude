@@ -65,7 +65,7 @@ export function Sidebar() {
           </div>
           <div className="grow">
             <div className="ks-title">{enabled ? t('AI access on') : t('AI access paused')}</div>
-            <div className="ks-sub ellipsis">{enabled ? (clients ? t('{n} client(s) connected', { n: clients }) : t('No AI clients connected')) : t('All AI requests are refused')}</div>
+            <div className="ks-sub">{enabled ? (clients ? t('{n} client(s) connected', { n: clients }) : t('No AI clients connected')) : t('All AI requests are refused')}</div>
           </div>
           <Switch on={enabled} tone="green" label={t('AI access')} onChange={(v) => void api().gateway.setEnabled(v)} />
         </div>

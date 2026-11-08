@@ -149,13 +149,16 @@ export function HostEditor() {
     setError('');
     try {
       const host = await api().hosts.save(draft, draft.auth === 'password' && draft.savePassword && password ? password : undefined);
+      // Adopt the saved host's id right away: otherwise, while the connection
+      // test (and its first-connection fingerprint prompt) is running, the alias
+      // check sees the just-saved host as "another host" and flags the alias.
+      setDraft((d) => ({ ...d, id: host.id }));
+      setAliasTouched(true);
       if (andTest) {
         setTesting(true);
         const r = await api().hosts.test(host.id);
         setTesting(false);
         toast(r.ok ? { kind: 'success', title: t('Connected to {name}', { name: host.name || host.alias }), message: r.osInfo } : { kind: 'error', title: t('Connection failed'), message: r.message });
-        setDraft((d) => ({ ...d, id: host.id }));
-        setAliasTouched(true);
         if (!r.ok) return;
       }
       toast({ kind: 'success', title: existing ? t('Host saved') : t('Host added') });
