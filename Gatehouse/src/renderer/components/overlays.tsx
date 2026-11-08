@@ -94,6 +94,19 @@ export function Toasts() {
           <div className="grow">
             <div className="t-title">{tt.title}</div>
             {tt.message && <div className="t-msg">{tt.message}</div>}
+            {tt.action && (
+              <button
+                type="button"
+                className="t-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismiss(tt.id);
+                  tt.action!.run();
+                }}
+              >
+                {tt.action.label}
+              </button>
+            )}
           </div>
         </div>
       ))}

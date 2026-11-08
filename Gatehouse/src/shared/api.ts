@@ -8,6 +8,7 @@ import type {
   AuditQueryInput,
   AuditVerifyInfo,
   CommandPreview,
+  ConnAttempt,
   ContextMenuItem,
   ForwardDraft,
   Host,
@@ -69,6 +70,14 @@ export interface GatehouseApi {
 
   knownHosts: {
     remove(id: string): Promise<void>;
+  };
+
+  /** Recorded connection attempts (newest first). List results leave out the protocol log. */
+  connLog: {
+    list(hostId?: string): Promise<ConnAttempt[]>;
+    get(id: string): Promise<ConnAttempt | null>;
+    latest(hostId: string): Promise<ConnAttempt | null>;
+    clear(hostId?: string): Promise<void>;
   };
 
   terminal: {

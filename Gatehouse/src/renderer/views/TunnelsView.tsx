@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ArrowRight, Globe, Network, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Globe, Network, Pencil, Plus, Stethoscope, Trash2, TriangleAlert } from 'lucide-react';
 import type { ForwardDraft, ForwardType, PortForward } from '@shared/types';
 import { api, attempt, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { formatBytes } from '../lib/format';
+import { causeTitle } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, Callout, EmptyState, Field, IconButton, Input, Segmented, Select, Switch } from '../components/ui';
 import { HostDot } from '../components/domain';
@@ -161,7 +162,19 @@ export function TunnelsView() {
                           </>
                         )}
                       </div>
-                      {st?.state === 'error' && <div className="error-text" style={{ marginTop: 4 }}>{st.error}</div>}
+                      {st?.state === 'error' && (
+                        <div className="row tunnel-error" style={{ marginTop: 4, gap: 8 }}>
+                          <span className="error-text ellipsis">
+                            {st.cause ? causeTitle(st.cause, st.causeParams) : st.error === 'Connection to the host closed' ? t('Connection to the host closed') : st.error}
+                          </span>
+                          {st.attemptId && (
+                            <button type="button" className="link-btn" onClick={() => useApp.getState().openConnLog(f.hostId, st.attemptId)}>
+                              <Stethoscope size={11} />
+                              {t('View details')}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {running && (
                       <div className="tunnel-stats tnum">

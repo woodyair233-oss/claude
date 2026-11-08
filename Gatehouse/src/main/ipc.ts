@@ -24,6 +24,7 @@ import {
 import { generateKey, keyInfoFromPrivate, KeyError } from './ssh/keys';
 import { parseSshConfig } from './ssh/ssh-config';
 import { execCommand, shellQuote } from './ssh/exec';
+import { isConnectError } from './ssh/diagnostics';
 import { installClaudeCode, installClaudeDesktop, selfTest, setupInfo } from './gateway/setup';
 import { bridgePath, dataDir, fileExists } from './paths';
 import { decryptBackup, encryptBackup } from './backup';
@@ -201,6 +202,7 @@ export function registerIpc(ctx: AppContext) {
     gateway.approvals.revoke(host.id);
     await vault.forgetHost(host.id).catch(() => undefined);
     store.deleteHost(host.id);
+    pool.connLog.clear(host.id);
   });
 
   handle('hosts:duplicate', async (id: string) => {
@@ -239,11 +241,18 @@ export function registerIpc(ctx: AppContext) {
       if (osInfo) store.patchHost(host.id, { osInfo });
       return { ok: true, message: 'Connected successfully.', osInfo, latencyMs };
     } catch (err) {
+      if (isConnectError(err)) return { ok: false, message: err.message, attemptId: err.attemptId, cause: err.connCause, causeParams: err.connParams };
       return { ok: false, message: (err as Error).message };
     } finally {
       lease?.release();
     }
   });
+
+  // Connection log -------------------------------------------------------------------
+  handle('connlog:list', (hostId?: string) => pool.connLog.list(typeof hostId === 'string' ? hostId : undefined));
+  handle('connlog:get', (id: string) => pool.connLog.get(String(id)) ?? null);
+  handle('connlog:latest', (hostId: string) => pool.connLog.latest(String(hostId)) ?? null);
+  handle('connlog:clear', (hostId?: string) => pool.connLog.clear(typeof hostId === 'string' ? hostId : undefined));
 
   handle('hosts:disconnect', (id: string) => {
     pool.disconnect(requireHost(id).id);

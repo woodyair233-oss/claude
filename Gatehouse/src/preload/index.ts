@@ -4,7 +4,8 @@ import type { GatehouseApi } from '../shared/api';
 
 function unwrap(err: unknown): never {
   const msg = err instanceof Error ? err.message : String(err);
-  throw new Error(msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''));
+  // The main process sends `${err.name}: ${err.message}`; drop the prefix whatever the error class.
+  throw new Error(msg.replace(/^Error invoking remote method '[^']+': ([A-Za-z]*Error: )?/, ''));
 }
 
 const invoke =
@@ -56,6 +57,12 @@ const api: GatehouseApi = {
     copyPublic: invoke('keys:copyPublic'),
     exportPublic: invoke('keys:exportPublic'),
     deploy: invoke('keys:deploy'),
+  },
+  connLog: {
+    list: invoke('connlog:list'),
+    get: invoke('connlog:get'),
+    latest: invoke('connlog:latest'),
+    clear: invoke('connlog:clear'),
   },
   knownHosts: {
     remove: invoke('knownHosts:remove'),

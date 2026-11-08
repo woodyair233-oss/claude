@@ -15,7 +15,12 @@ export type ViewId =
   | 'audit'
   | 'settings';
 
-export interface ToastItem extends Toast {
+/** A toast may carry one action button (renderer-only; main-process toasts have none). */
+export interface ToastInput extends Toast {
+  action?: { label: string; run: () => void };
+}
+
+export interface ToastItem extends ToastInput {
   id: number;
 }
 
@@ -31,6 +36,8 @@ interface UiState {
   toasts: ToastItem[];
   menuCommand?: { cmd: MenuCommand; at: number };
   hostPicker?: { title: string; resolve: (hostId: string | null) => void };
+  /** The connection-log dialog: whose log, and which attempt to show first. */
+  connLog?: { hostId: string; attemptId?: string; at: number };
 
   setSnapshot(s: AppSnapshot): void;
   applyPatch(p: SnapshotPatch): void;
@@ -43,8 +50,10 @@ interface UiState {
   setSettingsTab(tab: string): void;
   setActiveTerminal(id?: string): void;
   setFilesHost(id?: string): void;
-  toast(t: Toast): void;
+  toast(t: ToastInput): void;
   dismissToast(id: number): void;
+  openConnLog(hostId: string, attemptId?: string): void;
+  closeConnLog(): void;
   setMenuCommand(cmd: MenuCommand): void;
   pickHost(title: string): Promise<string | null>;
   closeHostPicker(result: string | null): void;
@@ -88,8 +97,10 @@ export const useApp = create<UiState>((set, get) => ({
   toast: (t) => {
     const id = ++toastId;
     set({ toasts: [...get().toasts, { ...t, id }].slice(-4) });
-    setTimeout(() => get().dismissToast(id), t.kind === 'error' ? 7000 : 4200);
+    setTimeout(() => get().dismissToast(id), t.action ? 12_000 : t.kind === 'error' ? 7000 : 4200);
   },
+  openConnLog: (hostId, attemptId) => set({ connLog: { hostId, attemptId, at: Date.now() } }),
+  closeConnLog: () => set({ connLog: undefined }),
   dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
   setMenuCommand: (cmd) => set({ menuCommand: { cmd, at: Date.now() } }),
   pickHost: (title) =>

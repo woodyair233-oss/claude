@@ -9,6 +9,8 @@ import { join, relative } from 'node:path';
 import { ZH } from '../../src/renderer/lib/zh';
 
 const RENDERER = join(import.meta.dirname, '../../src/renderer');
+// Shared modules that hold user-visible text the renderer translates.
+const SHARED_TEXT = [join(import.meta.dirname, '../../src/shared/conn-text.ts')];
 
 // Values that are intentionally shown as-is in every language.
 const UNTRANSLATED = new Set(['CSV', 'JSON', 'Ed25519', 'RSA 4096', 'ECDSA', 'English']);
@@ -28,7 +30,7 @@ function literal(body: string): string {
 
 function collect(): Map<string, string> {
   const found = new Map<string, string>();
-  for (const file of sourceFiles(RENDERER)) {
+  for (const file of [...sourceFiles(RENDERER), ...SHARED_TEXT]) {
     const code = readFileSync(file, 'utf8');
     const where = relative(RENDERER, file);
     for (const m of code.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)) found.set(literal(m[1]), where);

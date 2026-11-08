@@ -103,6 +103,10 @@ export function HostEditor() {
   const [aliasTouched, setAliasTouched] = useState(!!existing);
   const [password, setPassword] = useState('');
   const [tab, setTab] = useState<Tab>((initialTab as Tab) || 'general');
+  // Re-opened for the same host on a specific tab (e.g. from the connection log).
+  useEffect(() => {
+    if (initialTab) setTab(initialTab as Tab);
+  }, [initialTab]);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState('');
@@ -158,8 +162,13 @@ export function HostEditor() {
         setTesting(true);
         const r = await api().hosts.test(host.id);
         setTesting(false);
-        toast(r.ok ? { kind: 'success', title: t('Connected to {name}', { name: host.name || host.alias }), message: r.osInfo } : { kind: 'error', title: t('Connection failed'), message: r.message });
-        if (!r.ok) return;
+        if (!r.ok) {
+          // Show why, step by step, instead of a one-line toast.
+          if (r.attemptId) useApp.getState().openConnLog(host.id, r.attemptId);
+          else toast({ kind: 'error', title: t('Connection failed'), message: r.message });
+          return;
+        }
+        toast({ kind: 'success', title: t('Connected to {name}', { name: host.name || host.alias }), message: r.osInfo });
       }
       toast({ kind: 'success', title: existing ? t('Host saved') : t('Host added') });
       close();

@@ -114,6 +114,9 @@ export interface ForwardStatus {
   id: string;
   state: 'stopped' | 'starting' | 'running' | 'error';
   error?: string;
+  cause?: ConnCause;
+  causeParams?: ConnParams;
+  attemptId?: string;
   connections: number;
   bytesIn: number;
   bytesOut: number;
@@ -411,7 +414,135 @@ export interface TerminalSessionInfo {
   title: string;
   state: TerminalState;
   error?: string;
+  /** Why the connection failed or dropped, and the connection-log entry that explains it. */
+  cause?: ConnCause;
+  causeParams?: ConnParams;
+  attemptId?: string;
   startedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Connection diagnostics: one entry per attempt to open an SSH connection.
+
+/** Why a connection attempt failed (or, for 'dropped', why a live connection ended). */
+export type ConnCause =
+  | 'dns'
+  | 'refused'
+  | 'tcp-timeout'
+  | 'unreachable'
+  | 'reset'
+  | 'not-ssh'
+  | 'no-greeting'
+  | 'handshake-timeout'
+  | 'algorithms'
+  | 'algorithms-unsupported'
+  | 'hostkey-rejected'
+  | 'auth-password'
+  | 'auth-key'
+  | 'auth-agent'
+  | 'auth-interactive'
+  | 'auth-method'
+  | 'auth-partial'
+  | 'agent-missing'
+  | 'key-missing'
+  | 'key-passphrase'
+  | 'vault-locked'
+  | 'cancelled'
+  | 'jump'
+  | 'jump-forward'
+  | 'dropped'
+  | 'unknown';
+
+/** One line of an attempt's timeline. The text for each code lives in shared/conn-text.ts. */
+export type ConnStepCode =
+  | 'prompt'
+  | 'dns-ok'
+  | 'dns-fail'
+  | 'tcp-ok'
+  | 'tcp-fail'
+  | 'tcp-timeout'
+  | 'jump-ok'
+  | 'jump-fail'
+  | 'tunnel-ok'
+  | 'tunnel-fail'
+  | 'ident'
+  | 'ident-timeout'
+  | 'probe-ssh'
+  | 'probe-text'
+  | 'probe-silent'
+  | 'probe-closed'
+  | 'kex-ok'
+  | 'kex-fail'
+  | 'hostkey-known'
+  | 'hostkey-system'
+  | 'hostkey-new'
+  | 'hostkey-changed'
+  | 'hostkey-rejected'
+  | 'hostkey-revoked'
+  | 'banner'
+  | 'auth-try'
+  | 'auth-fail'
+  | 'auth-partial'
+  | 'auth-exhausted'
+  | 'auth-ok'
+  | 'ready'
+  | 'failed'
+  | 'closed'
+  | 'dropped';
+
+export type ConnParams = Record<string, string | number>;
+
+export interface ConnStep {
+  /** Milliseconds since the attempt started. */
+  at: number;
+  code: ConnStepCode;
+  status: 'ok' | 'fail' | 'info';
+  params?: ConnParams;
+}
+
+export interface ConnAttempt {
+  id: string;
+  hostId: string;
+  /** Name and alias when the attempt was made (the host may be renamed later). */
+  hostLabel: string;
+  hostAlias: string;
+  /** Where Gatehouse connected. Shown to the user only — never to Claude. */
+  target: { hostname: string; port: number; username: string };
+  /** Alias and id of the jump host, when the connection went through one. */
+  via?: string;
+  viaHostId?: string;
+  initiatedBy: 'user' | 'ai';
+  startedAt: number;
+  durationMs?: number;
+  outcome: 'connecting' | 'connected' | 'failed';
+  cause?: ConnCause;
+  causeParams?: ConnParams;
+  /** Short English summary; this is what Claude is told. */
+  message?: string;
+  /** Raw error text from the SSH library, if any. */
+  error?: string;
+  /** Server software from its SSH greeting, e.g. "OpenSSH_9.6p1 Ubuntu-3ubuntu13.5". */
+  server?: string;
+  steps: ConnStep[];
+  /** Verbose protocol log (no secrets); kept for failed attempts only. */
+  log?: string[];
+  /** In list results (which leave the log out): how many log lines there are. */
+  logLines?: number;
+  /** For attempts that connected: when and how the connection ended. */
+  endedAt?: number;
+  endCause?: 'closed' | 'dropped';
+  endError?: string;
+}
+
+/** Latest attempt per host, carried in the snapshot so host cards can flag failures. */
+export interface ConnStatus {
+  attemptId: string;
+  outcome: ConnAttempt['outcome'];
+  cause?: ConnCause;
+  causeParams?: ConnParams;
+  at: number;
+  /** Whether a live connection from this attempt later dropped. */
+  dropped?: boolean;
 }
 
 export interface SftpEntry {
@@ -499,6 +630,7 @@ export interface AppSnapshot {
   prompts: PromptRequest[];
   savedPasswords: string[];
   connectedHostIds: string[];
+  connStatus: Record<string, ConnStatus>;
   uiLocked: boolean;
   darkMode: boolean;
   touchIdAvailable: boolean;
@@ -615,4 +747,8 @@ export interface HostTestResult {
   message: string;
   osInfo?: string;
   latencyMs?: number;
+  /** Set when a new connection attempt was made (absent when an open connection was reused). */
+  attemptId?: string;
+  cause?: ConnCause;
+  causeParams?: ConnParams;
 }

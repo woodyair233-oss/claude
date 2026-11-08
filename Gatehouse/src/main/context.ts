@@ -47,6 +47,7 @@ export function buildSnapshot(ctx: AppContext): AppSnapshot {
     prompts: ctx.prompts.list(),
     savedPasswords: vault.savedPasswordHostIds(),
     connectedHostIds: ctx.pool.connectedHostIds(),
+    connStatus: ctx.pool.connLog.statuses(),
     uiLocked: ctx.ui.locked,
     darkMode: nativeTheme.shouldUseDarkColors,
     touchIdAvailable: ctx.touchId.available(),

@@ -3,6 +3,7 @@ import { api, attempt, useApp } from './store';
 import { t } from './i18n';
 import { confirmDialog } from '../components/overlays';
 import { ensureTerminal } from './terminal-registry';
+import { causeTitle } from './conn';
 
 export async function openTerminal(hostId: string): Promise<string | undefined> {
   const { snap, go, setActiveTerminal } = useApp.getState();
@@ -25,11 +26,16 @@ export async function testHost(host: Host) {
   toast({ kind: 'info', title: t('Testing {name}…', { name: host.name || host.alias }) });
   const r = await attempt(() => api().hosts.test(host.id), t('Connection failed'));
   if (!r) return;
-  toast(
-    r.ok
-      ? { kind: 'success', title: t('Connected to {name}', { name: host.name || host.alias }), message: [r.osInfo, r.latencyMs ? `${r.latencyMs} ms` : ''].filter(Boolean).join(' · ') }
-      : { kind: 'error', title: t('Connection failed'), message: r.message },
-  );
+  if (r.ok) {
+    toast({ kind: 'success', title: t('Connected to {name}', { name: host.name || host.alias }), message: [r.osInfo, r.latencyMs ? `${r.latencyMs} ms` : ''].filter(Boolean).join(' · ') });
+    return;
+  }
+  toast({
+    kind: 'error',
+    title: t('Could not connect to {name}', { name: host.name || host.alias }),
+    message: r.cause ? causeTitle(r.cause, r.causeParams) : r.message,
+    action: r.attemptId ? { label: t('View details'), run: () => useApp.getState().openConnLog(host.id, r.attemptId) } : undefined,
+  });
 }
 
 export async function deleteHost(host: Host) {
@@ -58,6 +64,7 @@ export async function hostContextMenu(host: Host) {
     { id: 'duplicate', label: t('Duplicate') },
     { id: 'copy', label: t('Copy SSH Command') },
     { id: 'test', label: t('Test Connection') },
+    { id: 'connlog', label: t('Connection Log…') },
     ...(connected ? [{ id: 'disconnect', label: t('Disconnect') }] : []),
     { type: 'separator' },
     { id: 'favorite', label: host.favorite ? t('Remove from Favorites') : t('Add to Favorites') },
@@ -79,6 +86,8 @@ export async function hostContextMenu(host: Host) {
       return s.toast({ kind: 'success', title: t('SSH command copied') });
     case 'test':
       return testHost(host);
+    case 'connlog':
+      return s.openConnLog(host.id);
     case 'disconnect':
       return api().hosts.disconnect(host.id);
     case 'favorite':

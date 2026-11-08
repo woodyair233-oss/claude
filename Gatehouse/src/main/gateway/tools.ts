@@ -11,7 +11,11 @@ import { decideCommand, decideFileRead, decideFileWrite, decideListDirectory, de
 import { detokenize } from '../../shared/redaction';
 import { MCP_SERVER_NAME } from '../../shared/defaults';
 import { execCommand, shellQuote } from '../ssh/exec';
+import { isConnectError } from '../ssh/diagnostics';
 import type { GatewayService } from './service';
+
+/** Appended to connection failures: the user has the full, unredacted diagnosis. */
+const CONNLOG_HINT = ' The user can see the full diagnosis in Gatehouse, in this host\'s connection log.';
 
 export const SERVER_INSTRUCTIONS = `Gatehouse is a security gateway between you and the user's SSH servers.
 - Refer to servers only by the alias returned by list_hosts. You never see real hostnames, IP addresses, usernames or credentials.
@@ -260,7 +264,7 @@ export function createMcpServer(gw: GatewayService, session: SessionCtx, appVers
     } catch (err) {
       const msg = (err as Error).message;
       gw.end(item.id, { outcome: 'error', decidedBy: g.by, error: msg });
-      return text(`Gatehouse could not connect to "${host.alias}": ${gw.present(msg).text}`, true);
+      return text(`Gatehouse could not connect to "${host.alias}": ${gw.present(msg).text}${isConnectError(err) ? `.${CONNLOG_HINT}` : ''}`, true);
     }
     try {
       const timeoutSec = Math.min(Math.max(opts.timeoutSec ?? gw.settings.ai.commandTimeoutSec, 1), 3600);
@@ -377,7 +381,7 @@ export function createMcpServer(gw: GatewayService, session: SessionCtx, appVers
       } catch (err) {
         const msg = (err as Error).message;
         gw.end(item.id, { outcome: 'error', decidedBy: 'policy', error: msg });
-        return text(`Gatehouse could not reach "${host.alias}": ${gw.present(msg).text}`, true);
+        return text(`Gatehouse could not reach "${host.alias}": ${gw.present(msg).text}${isConnectError(err) ? `.${CONNLOG_HINT}` : ''}`, true);
       } finally {
         lease?.release();
       }

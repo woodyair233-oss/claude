@@ -25,6 +25,7 @@ import { PoliciesView } from './views/PoliciesView';
 import { AuditView } from './views/AuditView';
 import { SettingsView } from './views/SettingsView';
 import { ImportDialog } from './views/ImportDialog';
+import { ConnLogDialog } from './components/ConnLog';
 import { Spinner } from './components/ui';
 
 function useBootstrap() {
@@ -180,6 +181,7 @@ export function App() {
         {editorOpen && <HostEditor key={editorKey} />}
         {importing && <ImportDialog onClose={() => setImporting(false)} />}
         <CommandPalette />
+        <ConnLogDialog />
         <ApprovalModal />
         <PromptHost />
         <HostPicker />

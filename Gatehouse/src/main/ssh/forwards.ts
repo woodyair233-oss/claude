@@ -5,6 +5,7 @@ import net from 'node:net';
 import type { ClientChannel, TcpConnectionDetails } from 'ssh2';
 import type { ForwardStatus, PortForward } from '../../shared/types';
 import type { ConnectionManager, Lease } from './connection';
+import { isConnectError } from './diagnostics';
 
 interface Running {
   forward: PortForward;
@@ -74,7 +75,11 @@ export class ForwardManager extends EventEmitter {
     super();
     pool.on('closed', (hostId: string) => {
       for (const r of [...this.running.values()]) {
-        if (r.forward.hostId === hostId) this.teardown(r.forward.id, 'Connection to the host closed');
+        if (r.forward.hostId !== hostId) continue;
+        // Point at the connection-log entry, which says whether (and why) it dropped.
+        const attemptId = r.lease.attemptId;
+        const dropped = this.pool.connLog.get(attemptId)?.endCause === 'dropped';
+        this.teardown(r.forward.id, 'Connection to the host closed', { attemptId, cause: dropped ? 'dropped' : undefined });
       }
     });
     // Remote forwards on a shared client: dispatch incoming connections.
@@ -108,7 +113,7 @@ export class ForwardManager extends EventEmitter {
     // port, hit EADDRINUSE and wrongly mark the live tunnel as errored.
     if (this.running.has(forward.id) || this.starting.has(forward.id)) return;
     this.starting.add(forward.id);
-    this.setStatus(forward.id, { state: 'starting', error: undefined, connections: 0, bytesIn: 0, bytesOut: 0 });
+    this.setStatus(forward.id, { state: 'starting', error: undefined, cause: undefined, causeParams: undefined, attemptId: undefined, connections: 0, bytesIn: 0, bytesOut: 0 });
     let lease: Lease | undefined;
     try {
       lease = await this.pool.acquire(forward.hostId, 'user');
@@ -156,6 +161,10 @@ export class ForwardManager extends EventEmitter {
       this.setStatus(forward.id, { state: 'running', startedAt: Date.now() });
     } catch (err) {
       lease?.release();
+      if (isConnectError(err)) {
+        this.setStatus(forward.id, { state: 'error', error: err.message, cause: err.connCause, causeParams: err.connParams, attemptId: err.attemptId });
+        throw err;
+      }
       const e = err as NodeJS.ErrnoException;
       const msg = e.code === 'EADDRINUSE' ? `Port ${forward.bindPort} is already in use.` : e.code === 'EACCES' ? `No permission to listen on port ${forward.bindPort}.` : e.message;
       this.setStatus(forward.id, { state: 'error', error: msg });
@@ -238,7 +247,7 @@ export class ForwardManager extends EventEmitter {
     this.teardown(id);
   }
 
-  private teardown(id: string, error?: string) {
+  private teardown(id: string, error?: string, diag?: Pick<ForwardStatus, 'attemptId' | 'cause'>) {
     const r = this.running.get(id);
     if (r) {
       this.running.delete(id);
@@ -254,7 +263,7 @@ export class ForwardManager extends EventEmitter {
       for (const s of r.sockets) s.destroy();
       r.lease.release();
     }
-    this.setStatus(id, { state: error ? 'error' : 'stopped', error, connections: 0 });
+    this.setStatus(id, { state: error ? 'error' : 'stopped', error, connections: 0, attemptId: diag?.attemptId, cause: diag?.cause, causeParams: undefined });
   }
 
   stopAll() {

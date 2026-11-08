@@ -4,6 +4,7 @@ import type { SshKeyInfo } from '@shared/types';
 import { api, attempt, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { formatDate, relativeTime } from '../lib/format';
+import { hostErrorToast } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, EmptyState, IconButton } from '../components/ui';
 import { confirmDialog, promptDialog } from '../components/overlays';
@@ -25,8 +26,13 @@ export function KeysView() {
     const hostId = await pickHost(t('Install "{name}" on…', { name: k.name }));
     if (!hostId) return;
     const host = hosts.find((h) => h.id === hostId);
-    const r = await attempt(() => api().keys.deploy(k.id, hostId), t('Could not install key'));
-    if (!r) return;
+    let r: string;
+    try {
+      r = await api().keys.deploy(k.id, hostId);
+    } catch (err) {
+      await hostErrorToast(hostId, t('Could not install key'), err);
+      return;
+    }
     toast({ kind: 'success', title: r === 'present' ? t('Key was already installed') : t('Key installed on {name}', { name: host?.name || host?.alias || '' }) });
     if (host && (host.auth !== 'key' || host.keyId !== k.id)) {
       const use = await confirmDialog({ title: t('Use this key for {name}?', { name: host.name || host.alias }), message: t('Switch the host to key authentication with "{key}".', { key: k.name }), confirmLabel: t('Use Key') });

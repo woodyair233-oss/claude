@@ -14,6 +14,7 @@ import type { Vault } from '../vault';
 import type { PromptBroker } from '../prompts';
 import { blobKeyType, fingerprintBlob, KeyError, parsePrivateKey } from './keys';
 import { checkSystemKnownHosts } from './known-hosts';
+import { cleanServerText, ConnLog, ConnPrepError, ConnTrace, dropReason, IDENT_TIMEOUT_MS, keyTypeLabel, openSocket, probePort, resolveHost } from './diagnostics';
 // ssh2 keeps its algorithm tables here; used to drop names this runtime cannot use.
 import constants from 'ssh2/lib/protocol/constants.js';
 
@@ -107,11 +108,17 @@ interface Pooled {
   closed: boolean;
   releaseJump?: () => void;
   connectedAt?: number;
+  /** The connection-log entry for the attempt that opened this connection. */
+  trace: ConnTrace;
+  /** Why a live connection failed, if it did (recorded when it closes). */
+  lastError?: string;
 }
 
 export interface Lease {
   client: ClientType;
   host: Host;
+  /** Connection-log entry of the attempt that opened this connection. */
+  attemptId: string;
   release: () => void;
 }
 
@@ -128,13 +135,19 @@ export interface ConnectionDeps {
   store: Store;
   vault: Vault;
   prompts: PromptBroker;
+  /** Where attempts are recorded; an in-memory log is used when omitted. */
+  connLog?: ConnLog;
+  /** Overrides for the diagnostic time limits (tests). */
+  timeouts?: { dnsMs?: number; tcpMs?: number; identMs?: number; probeMs?: number };
 }
 
 export class ConnectionManager extends EventEmitter {
   private pool = new Map<string, Pooled>();
+  readonly connLog: ConnLog;
 
   constructor(private readonly deps: ConnectionDeps) {
     super();
+    this.connLog = deps.connLog ?? new ConnLog();
   }
 
   connectedHostIds(): string[] {
@@ -166,6 +179,7 @@ export class ConnectionManager extends EventEmitter {
       return {
         client,
         host,
+        attemptId: pooled.trace.attempt.id,
         release: () => {
           if (released) return;
           released = true;
@@ -207,26 +221,50 @@ export class ConnectionManager extends EventEmitter {
 
   private dial(host: Host, initiatedBy: Initiator, chain: string[]): Pooled {
     const client = new Client();
-    const pooled: Pooled = { hostId: host.id, client, refs: 0, closed: false, ready: Promise.resolve(client) };
-    pooled.ready = this.connect(host, client, pooled, initiatedBy, chain);
+    const jumpHost = host.jumpHostId ? this.deps.store.getHost(host.jumpHostId) : undefined;
+    const trace = this.connLog.begin(host, initiatedBy, jumpHost ? { alias: jumpHost.alias, id: jumpHost.id } : undefined);
+    const pooled: Pooled = { hostId: host.id, client, refs: 0, closed: false, ready: Promise.resolve(client), trace };
+    pooled.ready = this.connect(host, client, pooled, initiatedBy, chain).catch(async (err) => {
+      // Explain the failure before reporting it: a port that accepted the
+      // connection but never spoke SSH gets a second, quick look.
+      if (trace.stage === 'ident' && !host.jumpHostId && trace.addresses.length && !trace.done) {
+        trace.probe = await probePort(trace.addresses[0], host.port, this.deps.timeouts?.probeMs);
+        const pr = trace.probe;
+        if (pr.kind === 'ssh') trace.step('probe-ssh', 'info', { software: pr.software });
+        else if (pr.kind === 'text') trace.step('probe-text', 'info', { banner: pr.banner });
+        else if (pr.kind === 'silent') trace.step('probe-silent', 'info');
+        else trace.step('probe-closed', 'info');
+      }
+      throw trace.failed(err, host.port);
+    });
     pooled.ready.catch(() => undefined);
     return pooled;
   }
 
   private async connect(host: Host, client: ClientType, pooled: Pooled, initiatedBy: Initiator, chain: string[]): Promise<ClientType> {
+    const trace = pooled.trace;
     if (chain.includes(host.id)) throw new Error('Jump host loop detected.');
     if (chain.length > MAX_JUMP_DEPTH) throw new Error('Too many chained jump hosts.');
 
     // Build auth first: a cancelled prompt, locked vault or missing key must not
     // leak the jump-host lease and its forwarded channel.
-    const plan = await this.buildAuth(host, initiatedBy);
+    const plan = await this.buildAuth(host, initiatedBy, trace);
     if (pooled.closed) throw new Error('Connection was cancelled.');
     const authQueue = [...plan.methods];
     let triedInteractive = host.auth === 'interactive';
 
     let sock: NodeJS.ReadableStream | undefined;
     if (host.jumpHostId) {
-      const jump = await this.acquire(host.jumpHostId, initiatedBy, [...chain, host.id]);
+      trace.stage = 'jump';
+      const jumpAlias = trace.attempt.via ?? '';
+      let jump: Lease;
+      try {
+        jump = await this.acquire(host.jumpHostId, initiatedBy, [...chain, host.id]);
+      } catch (err) {
+        trace.step('jump-fail', 'fail', { jump: jumpAlias });
+        throw err;
+      }
+      trace.step('jump-ok', 'ok', { jump: jumpAlias });
       pooled.releaseJump = jump.release;
       if (pooled.closed) {
         jump.release();
@@ -236,12 +274,17 @@ export class ConnectionManager extends EventEmitter {
       try {
         sock = await new Promise<NodeJS.ReadableStream>((resolve, reject) =>
           jump.client.forwardOut('127.0.0.1', 0, host.hostname, host.port, (err, stream) => {
-            if (err) return reject(new Error(`Jump host could not reach ${host.alias}: ${err.message}`));
+            if (err) {
+              trace.tunnelFailed = true;
+              trace.step('tunnel-fail', 'fail', { port: host.port, reason: cleanServerText(err.message.replace(/^\(SSH\) Channel open failure: /, ''), 120) });
+              return reject(new Error(`Jump host could not reach ${host.alias}: ${err.message}`));
+            }
             try {
               assertSaneChannel(stream);
             } catch (e) {
               return reject(e);
             }
+            trace.step('tunnel-ok', 'ok', { port: host.port });
             resolve(stream);
           }),
         );
@@ -250,7 +293,19 @@ export class ConnectionManager extends EventEmitter {
         pooled.releaseJump = undefined;
         throw err;
       }
+    } else {
+      // Open the TCP connection here rather than inside ssh2, so a wrong name,
+      // a closed port and a silent firewall each get their own diagnosis.
+      const addresses = await resolveHost(host.hostname, trace, this.deps.timeouts?.dnsMs);
+      if (pooled.closed) throw new Error('Connection was cancelled.');
+      const tcp = await openSocket(host.hostname, host.port, addresses, trace, this.deps.timeouts?.tcpMs);
+      if (pooled.closed) {
+        tcp.destroy();
+        throw new Error('Connection was cancelled.');
+      }
+      sock = tcp;
     }
+    trace.stage = 'ident';
 
     const config: ConnectConfig = {
       host: host.hostname,
@@ -262,16 +317,40 @@ export class ConnectionManager extends EventEmitter {
       keepaliveInterval: host.keepAliveSec > 0 ? host.keepAliveSec * 1000 : 0,
       keepaliveCountMax: 4,
       algorithms: algorithms(host.legacyAlgorithms),
+      // ssh2's protocol log feeds the connection log (it never prints secrets).
+      debug: trace.debug,
       hostVerifier: (key: Buffer, verify: (ok: boolean) => void) => {
-        this.verifyHostKey(host, key, initiatedBy).then(verify, () => verify(false));
+        this.verifyHostKey(host, key, initiatedBy, trace).then(verify, () => verify(false));
       },
-      authHandler: ((methodsLeft: string[] | null, _partial: boolean, next: (m: AnyAuthMethod | false) => void) => {
+      authHandler: ((methodsLeft: string[] | null, partial: boolean, next: (m: AnyAuthMethod | false) => void) => {
+        trace.stage = 'auth';
+        const label = (m: AnyAuthMethod) => (m.type === 'agent' ? 'agent' : m.type);
+        // Each call after the first reports how the previous method went.
+        if (trace.lastMethod) {
+          const allowed = (methodsLeft ?? []).filter((m) => m !== 'none');
+          trace.allowed = allowed;
+          if (partial) {
+            trace.partial = true;
+            trace.step('auth-partial', 'info', { method: trace.lastMethod, allowed: allowed.join(', ') });
+          } else {
+            trace.step('auth-fail', 'fail', { method: trace.lastMethod, allowed: allowed.join(', ') });
+          }
+        }
+        const tryMethod = (m: AnyAuthMethod) => {
+          const name = label(m);
+          trace.firstMethod ??= name;
+          if (trace.partial) trace.triedAfterPartial = true;
+          trace.lastMethod = name;
+          trace.step('auth-try', 'info', { user: host.username, method: name });
+          return next(m);
+        };
         const method = authQueue.shift();
-        if (method) return next(method);
+        if (method) return tryMethod(method);
         if (!triedInteractive && (methodsLeft ?? []).includes('keyboard-interactive')) {
           triedInteractive = true;
-          return next(this.keyboardInteractive(host, initiatedBy));
+          return tryMethod(this.keyboardInteractive(host, initiatedBy, trace));
         }
+        trace.step('auth-exhausted', 'fail');
         return next(false);
       }) as unknown as ConnectConfig['authHandler'],
     };
@@ -279,8 +358,35 @@ export class ConnectionManager extends EventEmitter {
 
     return new Promise<ClientType>((resolve, reject) => {
       let settled = false;
+      // A port that accepts the connection but never sends an SSH greeting would
+      // otherwise hang until the long ready timeout.
+      const identMs = this.deps.timeouts?.identMs ?? IDENT_TIMEOUT_MS;
+      const identTimer = setTimeout(() => {
+        if (settled || trace.stage !== 'ident') return;
+        trace.identTimedOut = true;
+        trace.step('ident-timeout', 'fail', { sec: Math.round(identMs / 1000) });
+        try {
+          client.destroy();
+        } catch {
+          /* ignore */
+        }
+      }, identMs);
+      trace.onIdent = () => {
+        clearTimeout(identTimer);
+        if (trace.stage === 'ident') trace.stage = 'kex';
+      };
+      client.on('handshake', (negotiated: { kex?: string; serverHostKey?: string; cs?: { cipher?: string } }) => {
+        if (settled) return;
+        trace.step('kex-ok', 'ok', { kex: negotiated.kex ?? '?', cipher: negotiated.cs?.cipher ?? '?', hostKey: negotiated.serverHostKey ?? '?' });
+        trace.stage = 'auth';
+      });
+      client.on('banner', (message: string) => {
+        if (settled || !message?.trim()) return;
+        trace.step('banner', 'info', { text: cleanServerText(message, 160) });
+      });
       client.once('ready', () => {
         settled = true;
+        clearTimeout(identTimer);
         if (pooled.closed) {
           try {
             client.end();
@@ -291,6 +397,8 @@ export class ConnectionManager extends EventEmitter {
           return;
         }
         pooled.connectedAt = Date.now();
+        trace.step('auth-ok', 'ok', { method: trace.lastMethod ?? host.auth });
+        trace.connected();
         this.deps.store.patchHost(host.id, { lastConnectedAt: Date.now() });
         // Persist a freshly-entered password only now that it has actually worked.
         void plan.commit?.().catch(() => undefined);
@@ -300,20 +408,29 @@ export class ConnectionManager extends EventEmitter {
       client.on('error', (err) => {
         if (!settled) {
           settled = true;
+          clearTimeout(identTimer);
           pooled.closed = true;
           pooled.releaseJump?.();
           // A saved password that just failed is stale: clear it so the next
-          // attempt prompts again instead of silently reusing it.
-          void plan.rollback?.().catch(() => undefined);
-          reject(new Error(friendlySshError(err)));
+          // attempt prompts again instead of silently reusing it. Only after the
+          // server refused the login: a network error says nothing about the password.
+          if ((err as { level?: string }).level === 'client-authentication') void plan.rollback?.().catch(() => undefined);
+          // The raw error goes to the classifier (dial() turns it into a ConnectError).
+          reject(err);
         } else {
+          pooled.lastError = dropReason(err);
           this.emit('connection-error', host.id, friendlySshError(err));
         }
       });
       client.on('close', () => {
+        // Closed by us (disconnect, idle timeout) or by the network/server?
+        const dropped = !pooled.closed;
         if (!settled) {
           settled = true;
+          clearTimeout(identTimer);
           reject(new Error('Connection closed during setup.'));
+        } else {
+          trace.ended(dropped ? 'dropped' : 'closed', dropped ? (pooled.lastError ?? dropReason(undefined)) : undefined);
         }
         if (this.pool.get(host.id) === pooled) this.pool.delete(host.id);
         if (!pooled.closed) {
@@ -328,7 +445,8 @@ export class ConnectionManager extends EventEmitter {
         client.connect(config);
       } catch (err) {
         settled = true;
-        reject(new Error(friendlySshError(err)));
+        clearTimeout(identTimer);
+        reject(err);
       }
     });
   }
@@ -339,13 +457,24 @@ export class ConnectionManager extends EventEmitter {
     return existsSync(onePassword) ? onePassword : undefined;
   }
 
-  private async buildAuth(host: Host, initiatedBy: Initiator): Promise<AuthPlan> {
+  /** Asks the user something during connect, recording the wait in the trace. */
+  private async askDuringConnect<T>(trace: ConnTrace, what: string, ask: () => Promise<T>, extra?: Record<string, string>): Promise<T> {
+    trace.step('prompt', 'info', { what, ...extra });
+    trace.promptPending = true;
+    try {
+      return await ask();
+    } finally {
+      trace.promptPending = false;
+    }
+  }
+
+  private async buildAuth(host: Host, initiatedBy: Initiator, trace: ConnTrace): Promise<AuthPlan> {
     const { vault, store, prompts } = this.deps;
     const username = host.username;
     switch (host.auth) {
       case 'agent': {
         const agent = this.agentSocket();
-        if (!agent) throw new Error('No SSH agent found (SSH_AUTH_SOCK is not set).');
+        if (!agent) throw new ConnPrepError('No SSH agent found (SSH_AUTH_SOCK is not set).', 'agent-missing');
         return { methods: [{ type: 'agent' as const, username, agent }] };
       }
       case 'password': {
@@ -361,8 +490,13 @@ export class ConnectionManager extends EventEmitter {
             },
           };
         }
-        const res = await prompts.ask({ kind: 'password', hostAlias: host.alias, username, host: host.hostname, initiatedBy });
-        if (!res || !('value' in res)) throw new Error('Password entry was cancelled.');
+        const res = await this.askDuringConnect(trace, 'password', () =>
+          prompts.ask({ kind: 'password', hostAlias: host.alias, username, host: host.hostname, initiatedBy }),
+        );
+        if (!res || !('value' in res)) {
+          trace.promptCancelled = true;
+          throw new ConnPrepError('Password entry was cancelled.', 'cancelled');
+        }
         const password = res.value;
         const plan: AuthPlan = { methods: [{ type: 'password' as const, username, password }] };
         if (res.save && vault.unlocked) {
@@ -375,19 +509,22 @@ export class ConnectionManager extends EventEmitter {
         return plan;
       }
       case 'interactive':
-        return { methods: [this.keyboardInteractive(host, initiatedBy)] };
+        return { methods: [this.keyboardInteractive(host, initiatedBy, trace)] };
       case 'key':
       default: {
-        if (!host.keyId) throw new Error(`No SSH key is selected for "${host.alias}".`);
+        if (!host.keyId) throw new ConnPrepError(`No SSH key is selected for "${host.alias}".`, 'key-missing');
         const info = store.getKey(host.keyId);
-        if (!vault.unlocked) throw new Error('Gatehouse is locked. Unlock it to use saved keys.');
+        if (!vault.unlocked) throw new ConnPrepError('Gatehouse is locked. Unlock it to use saved keys.', 'vault-locked');
         const pem = vault.getPrivateKey(host.keyId);
-        if (!info || !pem) throw new Error('The selected SSH key is missing. Choose another key.');
+        if (!info || !pem) throw new ConnPrepError('The selected SSH key is missing. Choose another key.', 'key-missing');
         let passphrase = info.encrypted ? vault.getKeyPassphrase(info.id) : undefined;
         if (info.encrypted && passphrase === undefined) {
           for (let attempt = 0; attempt < 3; attempt++) {
-            const res = await prompts.ask({ kind: 'passphrase', keyName: info.name, initiatedBy });
-            if (!res || !('value' in res)) throw new Error('Passphrase entry was cancelled.');
+            const res = await this.askDuringConnect(trace, 'passphrase', () => prompts.ask({ kind: 'passphrase', keyName: info.name, initiatedBy }));
+            if (!res || !('value' in res)) {
+              trace.promptCancelled = true;
+              throw new ConnPrepError('Passphrase entry was cancelled.', 'cancelled');
+            }
             try {
               parsePrivateKey(pem, res.value);
               passphrase = res.value;
@@ -397,7 +534,8 @@ export class ConnectionManager extends EventEmitter {
               }
               break;
             } catch (err) {
-              if (!(err instanceof KeyError) || err.code !== 'bad-passphrase' || attempt === 2) throw err;
+              if (!(err instanceof KeyError) || err.code !== 'bad-passphrase') throw err;
+              if (attempt === 2) throw new ConnPrepError(err.message, 'key-passphrase');
             }
           }
         }
@@ -406,7 +544,7 @@ export class ConnectionManager extends EventEmitter {
     }
   }
 
-  private keyboardInteractive(host: Host, initiatedBy: Initiator): AnyAuthMethod {
+  private keyboardInteractive(host: Host, initiatedBy: Initiator, trace: ConnTrace): AnyAuthMethod {
     const { vault, prompts } = this.deps;
     return {
       type: 'keyboard-interactive',
@@ -417,25 +555,45 @@ export class ConnectionManager extends EventEmitter {
         if (saved && list.every((p) => !p.echo && /password|passcode/i.test(p.prompt))) {
           return finish(list.map(() => saved));
         }
-        prompts
-          .ask({
-            kind: 'keyboard-interactive',
-            hostAlias: host.alias,
-            name: name || '',
-            instructions: instructions || '',
-            prompts: list.map((p) => ({ prompt: p.prompt, echo: !!p.echo })),
-            initiatedBy,
+        this.askDuringConnect(
+          trace,
+          'keyboard-interactive',
+          () =>
+            prompts.ask({
+              kind: 'keyboard-interactive',
+              hostAlias: host.alias,
+              name: name || '',
+              instructions: instructions || '',
+              prompts: list.map((p) => ({ prompt: p.prompt, echo: !!p.echo })),
+              initiatedBy,
+            }),
+          // The questions the server asked (never the answers).
+          { prompts: cleanServerText(list.map((p) => p.prompt.trim()).join(' / '), 120) },
+        )
+          .then((res) => {
+            if (!res || !('answers' in res)) trace.promptCancelled = true;
+            finish(res && 'answers' in res ? res.answers : []);
           })
-          .then((res) => finish(res && 'answers' in res ? res.answers : []))
-          .catch(() => finish([]));
+          .catch(() => {
+            trace.promptCancelled = true;
+            finish([]);
+          });
       },
     } as unknown as AnyAuthMethod;
   }
 
-  private async verifyHostKey(host: Host, blob: Buffer, initiatedBy: Initiator): Promise<boolean> {
-    const { store, prompts } = this.deps;
+  private async verifyHostKey(host: Host, blob: Buffer, initiatedBy: Initiator, trace: ConnTrace): Promise<boolean> {
+    trace.stage = 'hostkey';
     const fingerprint = fingerprintBlob(blob);
     const keyType = blobKeyType(blob);
+    const ok = await this.checkHostKey(host, blob, fingerprint, keyType, initiatedBy, trace);
+    if (!ok) trace.hostKeyRejected = true;
+    trace.stage = 'kex';
+    return ok;
+  }
+
+  private async checkHostKey(host: Host, blob: Buffer, fingerprint: string, keyType: string, initiatedBy: Initiator, trace: ConnTrace): Promise<boolean> {
+    const { store, prompts } = this.deps;
     const b64 = blob.toString('base64');
     const known = store.findKnownHost(host.hostname, host.port);
     const pin = () => {
@@ -451,48 +609,62 @@ export class ConnectionManager extends EventEmitter {
         lastSeenAt: now,
       });
     };
+    const type = keyTypeLabel(keyType);
     if (known) {
       if (known.publicKey === b64) {
         store.touchKnownHost(known.id);
+        trace.step('hostkey-known', 'ok', { type });
         return true;
       }
-      const res = await prompts.ask({
+      const res = await this.askDuringConnect(trace, 'host-key', () =>
+        prompts.ask({
+          kind: 'host-key',
+          hostAlias: host.alias,
+          host: host.hostname,
+          port: host.port,
+          keyType,
+          fingerprint,
+          status: 'changed',
+          previousFingerprint: known.fingerprint,
+          initiatedBy,
+        }),
+      );
+      if (res && 'accept' in res && res.accept) {
+        pin();
+        trace.step('hostkey-changed', 'ok', { fingerprint });
+        return true;
+      }
+      trace.step('hostkey-rejected', 'fail', { fingerprint });
+      return false;
+    }
+    const system = checkSystemKnownHosts(host.hostname, host.port, keyType, b64);
+    if (system === 'match') {
+      pin();
+      trace.step('hostkey-system', 'ok', { type });
+      return true;
+    }
+    if (system === 'revoked') {
+      trace.step('hostkey-revoked', 'fail');
+      return false;
+    }
+    const res = await this.askDuringConnect(trace, 'host-key', () =>
+      prompts.ask({
         kind: 'host-key',
         hostAlias: host.alias,
         host: host.hostname,
         port: host.port,
         keyType,
         fingerprint,
-        status: 'changed',
-        previousFingerprint: known.fingerprint,
+        status: system === 'mismatch' ? 'changed' : 'unknown',
         initiatedBy,
-      });
-      if (res && 'accept' in res && res.accept) {
-        pin();
-        return true;
-      }
-      return false;
-    }
-    const system = checkSystemKnownHosts(host.hostname, host.port, keyType, b64);
-    if (system === 'match') {
-      pin();
-      return true;
-    }
-    if (system === 'revoked') return false;
-    const res = await prompts.ask({
-      kind: 'host-key',
-      hostAlias: host.alias,
-      host: host.hostname,
-      port: host.port,
-      keyType,
-      fingerprint,
-      status: system === 'mismatch' ? 'changed' : 'unknown',
-      initiatedBy,
-    });
+      }),
+    );
     if (res && 'accept' in res && res.accept) {
       pin();
+      trace.step(system === 'mismatch' ? 'hostkey-changed' : 'hostkey-new', 'ok', { fingerprint });
       return true;
     }
+    trace.step('hostkey-rejected', 'fail', { fingerprint });
     return false;
   }
 }

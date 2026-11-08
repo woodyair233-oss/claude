@@ -6,6 +6,7 @@ import type { ClientChannel } from 'ssh2';
 import type { TerminalSessionInfo } from '../../shared/types';
 import type { ConnectionManager, Lease } from './connection';
 import { assertSaneChannel } from './connection';
+import { isConnectError } from './diagnostics';
 
 const HIGH_WATER = 2 * 1024 * 1024;
 const LOW_WATER = 256 * 1024;
@@ -38,7 +39,12 @@ export class TerminalManager extends EventEmitter {
     super();
     pool.on('closed', (hostId: string) => {
       for (const s of this.sessions.values()) {
-        if (s.info.hostId === hostId && s.info.state === 'connected') this.markClosed(s, 'Connection closed');
+        if (s.info.hostId !== hostId || s.info.state !== 'connected') continue;
+        // The connection-log entry says whether the connection dropped (and why).
+        const attemptId = s.lease?.attemptId;
+        const dropped = attemptId ? this.pool.connLog.get(attemptId)?.endCause === 'dropped' : false;
+        s.info = { ...s.info, attemptId, cause: dropped ? 'dropped' : undefined, causeParams: undefined };
+        this.markClosed(s, 'Connection closed');
       }
     });
   }
@@ -83,7 +89,7 @@ export class TerminalManager extends EventEmitter {
         }),
       );
       s.stream = stream;
-      s.info = { ...s.info, state: 'connected', error: undefined };
+      s.info = { ...s.info, state: 'connected', error: undefined, cause: undefined, causeParams: undefined, attemptId: undefined };
       this.emit('change');
       const onData = (d: Buffer) => this.queue(s, d);
       stream.on('data', onData);
@@ -91,7 +97,8 @@ export class TerminalManager extends EventEmitter {
       stream.on('close', () => this.markClosed(s));
       if (startupCommand?.trim()) stream.write(startupCommand.trim() + '\n');
     } catch (err) {
-      s.info = { ...s.info, state: 'error', error: (err as Error).message };
+      const diag = isConnectError(err) ? { cause: err.connCause, causeParams: err.connParams, attemptId: err.attemptId } : { cause: undefined, causeParams: undefined, attemptId: undefined };
+      s.info = { ...s.info, state: 'error', error: (err as Error).message, ...diag };
       s.lease?.release();
       s.lease = undefined;
       this.emit('change');
@@ -151,7 +158,7 @@ export class TerminalManager extends EventEmitter {
   reconnect(id: string) {
     const s = this.sessions.get(id);
     if (!s || s.info.state === 'connecting' || s.info.state === 'connected') return;
-    s.info = { ...s.info, state: 'connecting', error: undefined };
+    s.info = { ...s.info, state: 'connecting', error: undefined, cause: undefined, causeParams: undefined, attemptId: undefined };
     s.unacked = 0;
     s.paused = false;
     this.emit('change');

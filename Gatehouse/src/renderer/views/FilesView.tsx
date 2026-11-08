@@ -18,6 +18,7 @@ import {
   Home,
   Link2,
   RefreshCw,
+  Stethoscope,
   Trash2,
   X,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ import type { SftpEntry, TransferInfo } from '@shared/types';
 import { api, attempt, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { formatBytes, relativeTime } from '../lib/format';
+import { explainConnError } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, EmptyState, IconButton, Input, Progress, Select, Spinner, TextArea } from '../components/ui';
 import { HostDot } from '../components/domain';
@@ -264,6 +266,8 @@ export function FilesView() {
   const [entries, setEntries] = useState<SftpEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  /** Set when the folder could not be opened because the connection failed. */
+  const [errorAttempt, setErrorAttempt] = useState<string | undefined>();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
@@ -283,6 +287,7 @@ export function FilesView() {
       const forHost = hostId;
       setLoading(true);
       setError('');
+      setErrorAttempt(undefined);
       try {
         const r = await api().sftp.list(forHost, target || '.');
         // Ignore a response that arrived after the user switched host or folder.
@@ -294,7 +299,12 @@ export function FilesView() {
           return r.path;
         });
       } catch (err) {
-        if (seq === reqSeq.current) setError((err as Error).message);
+        if (seq !== reqSeq.current) return;
+        const why = await explainConnError(forHost, err);
+        if (seq === reqSeq.current) {
+          setError(why.title);
+          setErrorAttempt(why.attemptId);
+        }
       } finally {
         if (seq === reqSeq.current) setLoading(false);
       }
@@ -551,7 +561,22 @@ export function FilesView() {
           </div>
           <div className="files-table-wrap" onClick={(e) => e.target === e.currentTarget && setSelected(new Set())}>
             {error ? (
-              <EmptyState icon={<FolderTree size={34} />} title={t('Could not open this folder')}>
+              <EmptyState
+                icon={<FolderTree size={34} />}
+                title={errorAttempt ? t('Could not connect to {name}', { name: host?.name || host?.alias || '' }) : t('Could not open this folder')}
+                actions={
+                  errorAttempt && hostId ? (
+                    <>
+                      <Button icon={<Stethoscope size={14} />} onClick={() => useApp.getState().openConnLog(hostId, errorAttempt)}>
+                        {t('View details')}
+                      </Button>
+                      <Button variant="primary" icon={<RefreshCw size={14} />} onClick={() => void load(path, false)}>
+                        {t('Try again')}
+                      </Button>
+                    </>
+                  ) : undefined
+                }
+              >
                 {error}
               </EmptyState>
             ) : entries === null ? (

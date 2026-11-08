@@ -1,15 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, RotateCw, Search, SquareTerminal, X, Zap } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, RotateCw, Search, SquareTerminal, Stethoscope, X, Zap } from 'lucide-react';
 import type { TerminalSessionInfo } from '@shared/types';
 import { api, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { attachTerminal, clearSearch, clearTerminal, disposeTerminal, ensureTerminal, fitTerminal, focusTerminal, getSelection, searchTerminal } from '../lib/terminal-registry';
 import { openTerminal } from '../lib/actions';
 import { terminalTheme } from '../lib/themes';
+import { causeTitle } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, EmptyState, IconButton, Spinner } from '../components/ui';
 import { HostDot } from '../components/domain';
 import { promptDialog } from '../components/overlays';
+
+function bannerText(session: TerminalSessionInfo): string {
+  if (session.state === 'closed') return t('Session ended');
+  if (session.cause) return causeTitle(session.cause, session.causeParams);
+  // Plain closes carry this fixed English text from the main process.
+  if (session.error === 'Connection closed') return t('Connection closed');
+  return session.error || t('Connection failed');
+}
 
 function TerminalPane({ session, active }: { session: TerminalSessionInfo; active: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -40,7 +49,14 @@ function TerminalPane({ session, active }: { session: TerminalSessionInfo; activ
       {(session.state === 'error' || session.state === 'closed') && (
         <div className="term-banner">
           <span className={`status-dot ${session.state === 'error' ? 'err' : ''}`} />
-          <span className="grow ellipsis">{session.state === 'error' ? session.error || t('Connection failed') : t('Session ended')}</span>
+          <span className="grow ellipsis" title={bannerText(session)}>
+            {bannerText(session)}
+          </span>
+          {session.attemptId && (
+            <Button size="sm" variant="ghost" icon={<Stethoscope size={13} />} onClick={() => useApp.getState().openConnLog(session.hostId, session.attemptId)}>
+              {t('View details')}
+            </Button>
+          )}
           <Button size="sm" variant="primary" icon={<RotateCw size={13} />} onClick={() => api().terminal.reconnect(session.id)}>
             {t('Reconnect')}
           </Button>

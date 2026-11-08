@@ -13,6 +13,7 @@ export const runDir = () => join(dataDir(), 'run');
 export const auditDir = () => join(dataDir(), 'audit');
 export const storePath = () => join(dataDir(), 'gatehouse.json');
 export const vaultPath = () => join(dataDir(), 'vault.json');
+export const connLogPath = () => join(dataDir(), 'connections.json');
 export const endpointPath = () => join(runDir(), 'endpoint.json');
 
 /** Unix socket path; falls back to /tmp when the data dir path is too long for sun_path (104 bytes on macOS). */

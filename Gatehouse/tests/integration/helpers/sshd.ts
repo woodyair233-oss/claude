@@ -50,7 +50,8 @@ function waitForPort(port: number, timeoutMs = 10_000): Promise<void> {
   });
 }
 
-export async function startSshd(): Promise<TestSshd> {
+/** `overrides` replaces sshd_config settings by keyword, e.g. { PasswordAuthentication: 'no' }. */
+export async function startSshd(overrides: Record<string, string> = {}): Promise<TestSshd> {
   const dir = mkdtempSync('/tmp/gh-sshd-');
   const user = 'ghtest';
   const password = 'Gatehouse-Test-1!';
@@ -94,7 +95,12 @@ export async function startSshd(): Promise<TestSshd> {
       'MaxStartups 100',
       'LogLevel ERROR',
       '',
-    ].join('\n'),
+    ]
+      .map((line) => {
+        const key = line.split(' ')[0];
+        return key in overrides ? `${key} ${overrides[key]}` : line;
+      })
+      .join('\n'),
   );
   execFileSync('/usr/sbin/sshd', ['-t', '-f', config]);
   const child: ChildProcess = spawn('/usr/sbin/sshd', ['-D', '-e', '-f', config], { stdio: ['ignore', 'ignore', 'pipe'] });

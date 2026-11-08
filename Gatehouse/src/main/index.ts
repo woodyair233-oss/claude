@@ -1,10 +1,11 @@
 import { app, BrowserWindow, dialog, nativeTheme, Notification, powerMonitor, systemPreferences } from 'electron';
 import type { SnapshotPatch, Toast } from '../shared/types';
-import { auditDir, bridgePath, configureUserData, endpointPath, fileExists, socketPath, storePath, vaultPath } from './paths';
+import { auditDir, bridgePath, configureUserData, connLogPath, endpointPath, fileExists, socketPath, storePath, vaultPath } from './paths';
 import { Store, type StoreSlice } from './store';
 import { Vault } from './vault';
 import { PromptBroker } from './prompts';
 import { ConnectionManager } from './ssh/connection';
+import { ConnLog } from './ssh/diagnostics';
 import { TerminalManager } from './ssh/terminal';
 import { SftpManager } from './ssh/sftp';
 import { ForwardManager } from './ssh/forwards';
@@ -113,7 +114,8 @@ async function boot() {
   const vault = new Vault(vaultPath());
   await vault.init();
   const prompts = new PromptBroker();
-  const pool = new ConnectionManager({ store, vault, prompts });
+  const connLog = new ConnLog(connLogPath());
+  const pool = new ConnectionManager({ store, vault, prompts, connLog });
   const terminals = new TerminalManager(pool, {
     data: (id, data) => mainWindow?.webContents.send('term:data', id, data),
   });
@@ -177,6 +179,7 @@ async function boot() {
     if (!mainWindow?.isFocused()) showWindow();
   });
   pool.on('change', () => queuePatch(() => ({ connectedHostIds: pool.connectedHostIds() })));
+  pool.connLog.on('change', () => queuePatch(() => ({ connStatus: pool.connLog.statuses() })));
   terminals.on('change', () => queuePatch(() => ({ terminals: terminals.list() })));
   sftp.on('change', () => queuePatch(() => ({ transfers: sftp.listTransfers() })));
   forwards.on('change', () => queuePatch(() => ({ forwardStatus: forwards.statuses() })));
@@ -267,6 +270,7 @@ app.on('before-quit', (e) => {
   ctx.terminals.closeAll();
   ctx.pool.disconnectAll();
   ctx.store.flushSync();
+  ctx.pool.connLog.flushSync();
   tray?.destroy();
 });
 

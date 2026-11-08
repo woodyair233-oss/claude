@@ -155,6 +155,45 @@ async function main() {
     await win.locator('.approval-modal').getByRole('button', { name: /Allow once/ }).click();
     check('file write approved', text(await writeCall).includes('wrote'));
 
+    // ---------------------------------------------------------------- connection diagnostics
+    const closedPort = await new Promise((resolve) => {
+      const srv = require('node:net').createServer();
+      srv.listen(0, '127.0.0.1', () => {
+        const { port } = srv.address();
+        srv.close(() => resolve(port));
+      });
+    });
+    await nav(win, 'Hosts');
+    await win.getByRole('button', { name: 'New Host' }).first().click();
+    await win.waitForSelector('.sheet');
+    const fieldIn = (label) => win.locator('.sheet .field').filter({ has: win.locator('label', { hasText: label }) }).locator('input').first();
+    await fieldIn('Display name').fill('Old archive');
+    await fieldIn('Hostname or IP').fill('127.0.0.1');
+    await fieldIn('Port').fill(String(closedPort));
+    await fieldIn('Username').fill('ghtest');
+    await fieldIn('Alias').fill('old-archive');
+    await win.locator('.sheet .tabs button', { hasText: 'Authentication' }).click();
+    await win.locator('.sheet .seg button', { hasText: 'SSH agent' }).click();
+    await win.locator('.sheet').getByRole('button', { name: 'Save & Test' }).click();
+    await win.waitForSelector('.connlog-modal .cl-verdict.red', { timeout: 30000 });
+    const verdict = (await win.locator('.connlog-modal .cl-verdict-title').textContent()) ?? '';
+    check('failed Save & Test opens the connection log', /refused the connection on port/.test(verdict), verdict);
+    await shot(win, '26-connection-log');
+    await win.keyboard.press('Escape');
+    await win.waitForSelector('.connlog-modal', { state: 'detached' });
+    await win.keyboard.press('Escape');
+    await win.waitForSelector('.host-card .conn-problem', { timeout: 10000 });
+    check('host card flags the failed connection', (await win.locator('.host-card', { hasText: 'Old archive' }).locator('.conn-problem').count()) === 1);
+    const aiFail = await client.callTool({ name: 'run_command', arguments: { host: 'old-archive', command: 'uptime' } });
+    const aiText = text(aiFail);
+    check('Claude is told why, without the address', aiFail.isError && /refused the connection on port/.test(aiText) && aiText.includes('connection log') && !aiText.includes('127.0.0.1'), aiText);
+    await nav(win, 'Files');
+    await win.locator('.toolbar select').selectOption({ label: 'Old archive' });
+    await win.waitForSelector('.empty h2:has-text("Could not connect to Old archive")', { timeout: 30000 });
+    const filesBody = (await win.locator('.empty p').first().textContent()) ?? '';
+    check('Files view explains a failed connection', /refused the connection on port/.test(filesBody) && (await win.locator('.empty').getByRole('button', { name: 'View details' }).count()) === 1, filesBody);
+    await win.locator('.toolbar select').selectOption({ label: 'Lab GPU server' });
+
     await nav(win, 'Overview');
     await win.waitForTimeout(400);
     await shot(win, '13-gateway');

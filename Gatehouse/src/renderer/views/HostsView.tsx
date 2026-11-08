@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Folder, Import, LayoutGrid, List, MoreHorizontal, Plus, Server, Sparkles, Star, SquareTerminal } from 'lucide-react';
-import type { Host } from '@shared/types';
+import { AlertTriangle, Folder, Import, LayoutGrid, List, MoreHorizontal, Plus, Server, Sparkles, Star, SquareTerminal } from 'lucide-react';
+import type { ConnStatus, Host } from '@shared/types';
 import { useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { relativeTime } from '../lib/format';
 import { HOST_COLOR_HEX } from '../lib/themes';
 import { hostContextMenu, openTerminal } from '../lib/actions';
+import { causeTitle } from '../lib/conn';
 import { Toolbar } from '../components/Toolbar';
 import { Button, EmptyState, IconButton, SearchField, Segmented } from '../components/ui';
 import { ModeBadge } from '../components/domain';
@@ -28,8 +29,35 @@ function HostAvatar({ host, size = 36 }: { host: Host; size?: number }) {
   );
 }
 
+/** The latest attempt for a host, when it is worth flagging: it failed, or the connection dropped. */
+function useConnProblem(host: Host, connected: boolean | undefined): ConnStatus | undefined {
+  const st = useApp((s) => s.snap?.connStatus?.[host.id]);
+  if (connected || !st) return undefined;
+  return st.outcome === 'failed' || st.dropped ? st : undefined;
+}
+
+function ConnProblem({ host, st }: { host: Host; st: ConnStatus }) {
+  const text = st.outcome === 'failed' ? causeTitle(st.cause, st.causeParams) : t('The connection was lost');
+  return (
+    <button
+      type="button"
+      className="conn-problem"
+      title={`${text} · ${t('View details')}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        useApp.getState().openConnLog(host.id, st.attemptId);
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
+    >
+      <AlertTriangle size={11} />
+      <span className="ellipsis">{text}</span>
+    </button>
+  );
+}
+
 function HostCard({ host }: { host: Host }) {
   const connected = useApp((s) => s.snap?.connectedHostIds.includes(host.id));
+  const problem = useConnProblem(host, connected);
   const privacy = useApp((s) => s.snap?.settings.privacyMode);
   const openEditor = useApp((s) => s.openHostEditor);
   return (
@@ -54,7 +82,10 @@ function HostCard({ host }: { host: Host }) {
             {host.port !== 22 ? `:${host.port}` : ''}
           </div>
         </div>
-        <span className={`status-dot ${connected ? 'on' : ''}`} title={connected ? t('Connected') : t('Not connected')} />
+        <span
+          className={`status-dot ${connected ? 'on' : problem?.outcome === 'failed' ? 'err' : ''}`}
+          title={connected ? t('Connected') : problem?.outcome === 'failed' ? t('Last connection failed') : t('Not connected')}
+        />
       </div>
       <div className="hc-meta">
         <ModeBadge mode={host.ai.mode} small />
@@ -79,7 +110,7 @@ function HostCard({ host }: { host: Host }) {
               <span className="faint">·</span>
             </span>
           )}
-          {host.osInfo ?? (host.lastConnectedAt ? t('Last connected {when}', { when: relativeTime(host.lastConnectedAt) }) : t('Never connected'))}
+          {problem ? <ConnProblem host={host} st={problem} /> : (host.osInfo ?? (host.lastConnectedAt ? t('Last connected {when}', { when: relativeTime(host.lastConnectedAt) }) : t('Never connected')))}
         </span>
         <div className="hc-actions">
           <IconButton label={t('More')} small onClick={() => void hostContextMenu(host)}>
@@ -99,6 +130,7 @@ function HostCard({ host }: { host: Host }) {
 
 function HostRow({ host }: { host: Host }) {
   const connected = useApp((s) => s.snap?.connectedHostIds.includes(host.id));
+  const problem = useConnProblem(host, connected);
   const privacy = useApp((s) => s.snap?.settings.privacyMode);
   const openEditor = useApp((s) => s.openHostEditor);
   return (
@@ -133,10 +165,14 @@ function HostRow({ host }: { host: Host }) {
       </td>
       <td className="muted">{host.group || '—'}</td>
       <td>
-        <span className="row" style={{ gap: 6 }}>
-          <span className={`status-dot ${connected ? 'on' : ''}`} />
-          <span className="faint">{connected ? t('Connected') : relativeTime(host.lastConnectedAt)}</span>
-        </span>
+        {problem ? (
+          <ConnProblem host={host} st={problem} />
+        ) : (
+          <span className="row" style={{ gap: 6 }}>
+            <span className={`status-dot ${connected ? 'on' : ''}`} />
+            <span className="faint">{connected ? t('Connected') : relativeTime(host.lastConnectedAt)}</span>
+          </span>
+        )}
       </td>
       <td style={{ textAlign: 'right' }}>
         <div className="row" style={{ justifyContent: 'flex-end', gap: 4 }}>
