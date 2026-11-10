@@ -9,6 +9,9 @@ import {
 function risk(cmd: string) {
   return assessPowerShellCommand(cmd).risk;
 }
+function codes(cmd: string) {
+  return assessPowerShellCommand(cmd).reasons.map((r) => r.code);
+}
 
 describe('PowerShell classifier — read-only', () => {
   const reads = [
@@ -142,6 +145,78 @@ describe('tokenizer resilience', () => {
   it('single-quoted strings do not expand', () => {
     const l = tokenizePowerShell("Write-Output 'literal $env:PATH'");
     expect(l.hadSubexpr).toBe(false);
+  });
+});
+
+describe('PowerShell classifier — allowlist bypasses (security review)', () => {
+  // #1 @(...) array-subexpression contents must be analyzed
+  it('danger inside @() is not read', () => {
+    expect(risk('@(Remove-Item C:\\data -Recurse -Force)')).not.toBe('read');
+    expect(codes('@(Remove-Item C:\\data -Recurse -Force)')).toContain('recursive-delete');
+    expect(risk('@(Stop-Process -Name sshd)')).not.toBe('read');
+    expect(risk('@(New-LocalUser hacker)')).not.toBe('read');
+    expect(risk('Write-Output @(Stop-Process -Name sshd)')).not.toBe('read');
+    expect(risk('Get-Content @(Remove-Item C:\\x -Recurse)')).not.toBe('read');
+  });
+
+  // #2a quoted credential file is still sensitive
+  it('quoted credential read is still sensitive', () => {
+    const a = assessPowerShellCommand("Get-Content 'C:\\Users\\me\\.aws\\credentials'");
+    expect(a.sensitive).toBe(true);
+    expect(assessPowerShellCommand('Get-Content "C:\\keys\\server.pem"').sensitive).toBe(true);
+  });
+
+  // #2b native subcommand rules survive quoting the keyword
+  it('quoted native subcommands are still classified', () => {
+    expect(codes('net "user" hacker Pass1 /add')).toContain('user-account');
+    expect(codes('icacls C:\\Windows "/grant" Everyone:F')).toContain('permissions-recursive');
+    expect(codes('vssadmin "delete" shadows /all')).toContain('disk-destroy');
+    expect(codes('reg "delete" "HKLM\\Software\\Foo" /f')).toContain('registry-system');
+    expect(risk('schtasks "/create" /tn t /tr calc.exe /sc daily')).not.toBe('read');
+  });
+
+  // #2c system-path writes/deletes via a quoted path
+  it('quoted system paths are flagged', () => {
+    expect(codes('Set-Content "C:\\Windows\\System32\\drivers\\etc\\hosts" "x"')).toContain('system-file-write');
+    expect(codes('Remove-Item "C:\\Windows\\System32\\config\\SAM"')).toContain('system-file-write');
+  });
+
+  // #3 recursion-depth cliff
+  it('deeply nested danger is not read', () => {
+    expect(risk('((((((Remove-Item C:\\data -Recurse))))))')).not.toBe('read');
+  });
+
+  // #4 sc alias shadowing
+  it('sc (without .exe) service control is not downgraded to read', () => {
+    expect(risk('sc delete sshd')).not.toBe('read');
+    expect(codes('sc delete sshd')).toContain('kill-processes');
+    expect(codes('sc stop sshd')).toContain('kill-processes');
+  });
+
+  // #5 READ_VERBS no longer whitelists format/export
+  it('Export-/Format- writers are not read', () => {
+    expect(risk('Export-PfxCertificate -FilePath C:\\out.pfx')).not.toBe('read');
+    expect(risk('Format-Volume -DriveLetter D')).toBe('danger');
+  });
+
+  // #6 -EncodedCommand / nested shells register
+  it('encoded / nested shell commands are not read', () => {
+    expect(risk('powershell -EncodedCommand ZQBjAGgAbwA=')).not.toBe('read');
+    expect(codes('powershell -EncodedCommand ZQBjAGgAbwA=')).toContain('interpreter');
+    expect(risk('cmd /c "del x"')).not.toBe('read');
+  });
+});
+
+describe('PowerShell classifier — no over-classification regressions', () => {
+  it('benign static calls are not danger', () => {
+    expect(assessPowerShellCommand('[System.Math]::Max(1,2)').risk).not.toBe('danger');
+    expect(assessPowerShellCommand('[DateTime]::Now').risk).not.toBe('danger');
+  });
+  it('a plain hashtable literal is not falsely flagged', () => {
+    expect(risk('Write-Output @{ name = "x"; port = 22 }')).toBe('read');
+  });
+  it('reading via pipeline stays read', () => {
+    expect(risk('Get-ChildItem C:\\logs | Where-Object { $_.Length -gt 1000 } | Select-Object Name')).toBe('read');
   });
 });
 

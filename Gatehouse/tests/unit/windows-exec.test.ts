@@ -54,9 +54,12 @@ describe('PowerShell -EncodedCommand', () => {
     expect(b).toContain('$PSVersionTable.PSVersion.Major -ge 7');
     // Emits the PID + code-page marker on stderr.
     expect(b).toContain("'GHPID:'+$PID");
-    // Propagates a bash-like exit status.
+    // Propagates a bash-like exit status by reading $? right after the invoke
+    // (no appended statement, so begin/process/end-block commands still report).
     expect(b).toContain('exit 0');
     expect(b).toContain('$global:LASTEXITCODE');
+    expect(b).toContain('$__ghOk=$?');
+    expect(b).not.toContain('$global:__ghQ=$?'); // the old fragile append is gone
   });
 });
 

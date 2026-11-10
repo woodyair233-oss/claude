@@ -49,7 +49,9 @@ function riskLabel(r: RiskLevel | undefined) {
 /** Prepends a working-directory change in the chosen shell's syntax. */
 function withCwd(target: ShellTarget, cwd: string | undefined, command: string): string {
   if (!cwd) return command;
-  if (target.kind === 'powershell') return `Set-Location -LiteralPath ${psQuote(cwd)}; ${command}`;
+  // -ErrorAction Stop makes a bad cwd terminating, so the command does not run
+  // in the wrong directory and the call fails — matching `cd … && cmd`.
+  if (target.kind === 'powershell') return `Set-Location -LiteralPath ${psQuote(cwd)} -ErrorAction Stop; ${command}`;
   return `cd ${shellQuote(cwd)} && ${command}`; // posix + wsl (bash)
 }
 
@@ -63,7 +65,8 @@ const WINDOWS_INFO_SCRIPT = [
   '"{0} (build {1})" -f $os.Caption,$os.BuildNumber',
   '"PowerShell: $($PSVersionTable.PSVersion)"',
   '"CPUs: $($cs.NumberOfLogicalProcessors)"',
-  '"Memory: {0:N1} GB total, {1:N1} GB free" -f ($cs.TotalPhysicalMemory/1GB),($os.FreePhysicalMemory/1MB/1024)',
+  // TotalPhysicalMemory is bytes; FreePhysicalMemory is kilobytes (1KB → GB is /1MB).
+  '"Memory: {0:N1} GB total, {1:N1} GB free" -f ($cs.TotalPhysicalMemory/1GB),($os.FreePhysicalMemory/1MB)',
   'Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object { "{0} {1:N1} GB free of {2:N1} GB" -f $_.DeviceID,($_.FreeSpace/1GB),($_.Size/1GB) }',
   'try { "Uptime: $((Get-Date) - $os.LastBootUpTime)" } catch {}',
 ].join('\n');
@@ -240,7 +243,8 @@ export function createMcpServer(gw: GatewayService, session: SessionCtx, appVers
           os: h.osInfo,
           platform,
           shells,
-          default_shell: platform === 'windows' ? h.shell.windowsDefault : platform === 'posix' ? 'bash' : undefined,
+          // The effective default: a WSL default with WSL disabled actually runs PowerShell.
+          default_shell: platform === 'windows' ? (h.shell.windowsDefault === 'wsl' && h.shell.wsl ? 'wsl' : 'powershell') : platform === 'posix' ? 'bash' : undefined,
           access: h.ai.mode,
           file_writes: h.ai.mode === 'read-only' ? 'deny' : h.ai.fileWrite,
           connected: gw.deps.pool.isConnected(h.id),
@@ -318,7 +322,7 @@ export function createMcpServer(gw: GatewayService, session: SessionCtx, appVers
       const stderr = r.stderr ? gw.present(r.stderr, Math.floor(outBudget * 0.25), host.id) : { text: '', redactions: 0, truncated: false };
       const redactions = stdout.redactions + stderr.redactions;
       const status = r.timedOut
-        ? `timed out after ${timeoutSec}s (process signalled)`
+        ? `timed out after ${timeoutSec}s (process ${opts.shell.kind === 'posix' ? 'signalled' : 'terminated'})`
         : r.aborted
           ? 'cancelled'
           : `exit ${r.exitCode ?? (r.exitSignal ? `signal ${r.exitSignal}` : '?')}`;

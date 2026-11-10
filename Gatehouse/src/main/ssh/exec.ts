@@ -203,10 +203,23 @@ export function execCommand(client: Client, command: string, opts: ExecOptions):
           }
         }, 5000);
         if (prepared.windows) {
-          // Windows OpenSSH ignores signals: stop the processes by id.
-          const kill = windowsKillCommands(target, { win: markers?.pid, linux: markers?.linuxPid });
-          if (kill.linux) runQuietly(client, kill.linux);
-          killTimers = [setTimeout(() => kill.win && runQuietly(client, kill.win), kill.linux ? 2000 : 0), closeChannel];
+          // Windows OpenSSH ignores signals: stop the processes by id. The PID
+          // marker is the only handle on the remote process, so if it has not
+          // arrived yet (a very short timeout firing before the first stderr
+          // byte), retry a few times as it comes in rather than give up — then
+          // fall back to closing the channel.
+          let killed = false;
+          const attempt = () => {
+            if (killed || done) return;
+            const kill = windowsKillCommands(target, { win: markers?.pid, linux: markers?.linuxPid });
+            if (kill.linux) runQuietly(client, kill.linux);
+            if (kill.win) {
+              killed = true;
+              setTimeout(() => runQuietly(client, kill.win!), kill.linux ? 2000 : 0);
+            }
+          };
+          attempt();
+          killTimers = [setTimeout(attempt, 400), setTimeout(attempt, 1200), setTimeout(attempt, 3000), closeChannel];
           return;
         }
         const killGroup = () => {

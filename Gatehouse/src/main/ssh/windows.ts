@@ -60,15 +60,16 @@ export function powershellBootstrap(payload: string | null): string {
     `$OutputEncoding=$__ghU`,
     `try{$__ghS=$Host.UI.RawUI.BufferSize;if($__ghS.Width -lt 400){$__ghS.Width=400;$Host.UI.RawUI.BufferSize=$__ghS}}catch{}`,
     `if($PSVersionTable.PSVersion.Major -ge 7){try{$PSStyle.OutputRendering='PlainText'}catch{}}`,
-    // The appended line records the status of the command's last statement. A
-    // command it cannot follow (named begin/process/end blocks) compiles as is.
+    // Compile the command once (a syntax error is reported without running it),
+    // then read the status of its last statement straight from `$?` on the next
+    // line — no appended statement, so commands shaped as named begin/process/end
+    // blocks or ending in a line-continuation still report their real status.
     `$__ghB=$null`,
-    `try{$__ghB=[ScriptBlock]::Create($__ghC+[Environment]::NewLine+'$global:__ghQ=$?')}catch{}`,
-    `if($null -eq $__ghB){try{$__ghB=[ScriptBlock]::Create($__ghC)}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 1}}`,
-    `$global:__ghQ=$true`,
+    `try{$__ghB=[ScriptBlock]::Create($__ghC)}catch{[Console]::Error.WriteLine($_.Exception.Message);exit 1}`,
     `$global:LASTEXITCODE=0`,
     `& $__ghB`,
-    `if(-not $global:__ghQ){if($global:LASTEXITCODE){exit $global:LASTEXITCODE};exit 1}`,
+    `$__ghOk=$?`,
+    `if(-not $__ghOk){if($global:LASTEXITCODE){exit $global:LASTEXITCODE};exit 1}`,
     `exit 0`,
   ].join('\n');
 }

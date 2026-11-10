@@ -146,8 +146,11 @@ const BLOCK_RUNNERS = new Set<string>([
   'start-threadjob', 'register-objectevent', 'trace-command', 'invoke-expression',
 ]);
 
-// Verbs that a read-only Get-style custom cmdlet might use.
-const READ_VERBS = new Set(['get', 'test', 'measure', 'select', 'compare', 'find', 'search', 'read', 'resolve', 'show', 'format', 'out', 'convertto', 'convertfrom', 'export', 'trace', 'write']);
+// Verbs that a read-only Get-style custom cmdlet might use. Deliberately NOT
+// 'format' (Format-Volume), 'export' (Export-PfxCertificate writes a key) or
+// 'write' (Write-EventLog): the genuinely read-only Format-*/Out-*/Write-Output
+// cmdlets are in READ_CMDLETS by name, so unknown ones fall through to a write.
+const READ_VERBS = new Set(['get', 'test', 'measure', 'select', 'compare', 'find', 'search', 'read', 'resolve', 'show', 'out', 'convertto', 'convertfrom', 'trace']);
 
 // Native Windows tools with subcommand-based read/write split.
 const NATIVE_READ_ONLY = new Set([
@@ -164,7 +167,7 @@ const NATIVE_READ_ONLY = new Set([
 type Tok =
   | { t: 'word'; v: string }
   | { t: 'param'; v: string }
-  | { t: 'str'; expand: boolean }
+  | { t: 'str'; expand: boolean; value: string }
   | { t: 'var'; scope: string; name: string }
   | { t: 'op'; v: '|' | ';' | '&&' | '||' | '&' | ',' | 'nl' }
   | { t: 'redir'; append: boolean; stream: string }
@@ -235,36 +238,43 @@ export function tokenizePowerShell(src: string): Lexed {
       const end = src.indexOf(close, i + 2);
       hadHereString = true;
       if (q === '"') hadSubexpr = true; // interpolating here-string
+      const value = src.slice(i + 2, end < 0 ? n : end);
       i = end < 0 ? n : end + close.length;
       if (end < 0) parseError = true;
-      tokens.push({ t: 'str', expand: q === '"' });
+      tokens.push({ t: 'str', expand: q === '"', value });
       continue;
     }
-    // Strings.
+    // Strings. The literal content is captured so path / subcommand checks see
+    // through quoting (a quoted path or keyword is not opaque to the classifier).
     if (c === "'" || c === '\u2018' || c === '\u2019') {
       i++;
+      let value = '';
       while (i < n) {
         const ch = src[i];
         if (ch === "'" || ch === '\u2018' || ch === '\u2019') {
           if (src[i + 1] === "'" || src[i + 1] === '\u2018' || src[i + 1] === '\u2019') {
+            value += "'";
             i += 2;
             continue;
           }
           i++;
           break;
         }
+        value += ch;
         i++;
         if (i >= n) parseError = true;
       }
-      tokens.push({ t: 'str', expand: false });
+      tokens.push({ t: 'str', expand: false, value });
       continue;
     }
     if (c === '"' || c === '\u201c' || c === '\u201d') {
       i++;
       let expand = false;
+      let value = '';
       while (i < n) {
         const ch = src[i];
         if (ch === '`') {
+          value += src[i + 1] ?? '';
           i += 2;
           continue;
         }
@@ -276,10 +286,11 @@ export function tokenizePowerShell(src: string): Lexed {
           i++;
           break;
         }
+        value += ch;
         i++;
         if (i >= n) parseError = true;
       }
-      tokens.push({ t: 'str', expand });
+      tokens.push({ t: 'str', expand, value });
       continue;
     }
     // Operators / structure.
@@ -485,6 +496,9 @@ export function tokenizePowerShell(src: string): Lexed {
 // ---------------------------------------------------------------------------
 // Analysis
 
+/** Grouping-recursion ceiling: deep enough for any real command, shallow enough to bound work. */
+const MAX_DEPTH = 24;
+
 interface Ctx {
   reasons: Reason[];
   programs: string[];
@@ -508,6 +522,15 @@ function canonical(word: string): string {
   if (slash >= 0) w = w.slice(slash + 1);
   // A name written with .exe/.cmd/.bat is a native tool, never a PowerShell alias.
   return wasExe ? w : ALIASES[w] ?? w;
+}
+
+/** The lower-cased base name before any alias resolution (for native-tool rules). */
+function baseName(word: string): string {
+  let w = word.toLowerCase();
+  if (w.endsWith('.exe') || w.endsWith('.cmd') || w.endsWith('.bat') || w.endsWith('.ps1')) w = w.slice(0, w.lastIndexOf('.'));
+  const slash = Math.max(w.lastIndexOf('\\'), w.lastIndexOf('/'));
+  if (slash >= 0) w = w.slice(slash + 1);
+  return w;
 }
 
 const PURE_METHODS = new Set([
@@ -562,8 +585,9 @@ function analyzeCommandPipelineElement(ctx: Ctx, tokens: Tok[], depth: number) {
   // only the call operator (& $x) runs it, so a plain var is not flagged here.
   if (t && (t.t === 'open' || t.t === 'var' || t.t === 'type')) {
     if (t.t === 'type') {
-      // [Type]::Method(...) — a static call in command position.
-      push(ctx, 'method-call', t.v.slice(0, 60));
+      // [Type]::Method(...) in command position: danger only for a risky type
+      // ([IO.File]::Delete), otherwise needs approval ([Math]::Max is benign).
+      push(ctx, DANGER_TYPES.test(t.v.replace(/\s/g, '')) ? 'method-call' : 'modifying-args', t.v.slice(0, 60));
     }
     // still scan the remaining tokens for blocks / methods / paths
     scanArgs(ctx, tokens.slice(idx), depth);
@@ -574,11 +598,19 @@ function analyzeCommandPipelineElement(ctx: Ctx, tokens: Tok[], depth: number) {
     return;
   }
   const cmd = canonical(t.v);
+  const raw = baseName(t.v);
   ctx.programs.push(cmd);
   const args = tokens.slice(idx + 1);
 
+  // A bare name that is both a PowerShell alias and a native tool (e.g. `sc` →
+  // Set-Content in 5.1, but sc.exe in PowerShell 7) must still face its native
+  // danger rule, so the alias cannot be used to downgrade the risk.
+  if (raw !== cmd && NATIVE_RULES[raw]) NATIVE_RULES[raw](ctx, args);
+
   if (cmd === 'invoke-expression') {
     push(ctx, 'interpreter', 'Invoke-Expression');
+  } else if (cmd === 'powershell' || cmd === 'pwsh' || cmd === 'cmd' || cmd === 'wscript' || cmd === 'cscript' || cmd === 'mshta' || cmd === 'rundll32' || cmd === 'regsvr32' || cmd === 'conhost') {
+    push(ctx, 'interpreter', cmd); // nested shells / script hosts run arbitrary code
   } else if (cmd === 'invoke-command') {
     push(ctx, 'interpreter', 'Invoke-Command');
   } else if (cmd === 'invoke-webrequest' || cmd === 'invoke-restmethod') {
@@ -638,6 +670,7 @@ function positionalWords(args: Tok[]): string[] {
       continue;
     }
     if (a.t === 'word') out.push(a.v);
+    else if (a.t === 'str') out.push(a.value); // a quoted keyword (net "user" …) is still a positional
   }
   return out;
 }
@@ -678,16 +711,17 @@ function checkRegistryWrite(ctx: Ctx, args: Tok[], cmd: string) {
   }
 }
 
-/** Path-looking positional/-Path arguments as plain strings. */
+/** Path-looking positional/-Path arguments as plain strings (quoted or bare). */
 function pathArgs(args: Tok[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a.t === 'word') out.push(a.v);
-    if (a.t === 'param' && (a.v === 'path' || a.v === 'literalpath' || a.v === 'destination' || a.v === 'filepath' || a.v === 'outfile')) {
-      // value is the next word (coarse; strings are opaque to path checks)
+    else if (a.t === 'str') out.push(a.value);
+    else if (a.t === 'param' && (a.v === 'path' || a.v === 'literalpath' || a.v === 'destination' || a.v === 'filepath' || a.v === 'outfile')) {
       const nv = args[i + 1];
       if (nv && nv.t === 'word') out.push(nv.v);
+      else if (nv && nv.t === 'str') out.push(nv.value);
     }
   }
   return out;
@@ -842,7 +876,7 @@ function analyzeNative(ctx: Ctx, cmd: string, args: Tok[]) {
   if (dash > 0) {
     const verb = cmd.slice(0, dash);
     if (READ_VERBS.has(verb)) return;
-    if (['set', 'new', 'add', 'update', 'install', 'import', 'register', 'enable', 'disable', 'rename', 'move', 'copy', 'send', 'invoke', 'push', 'write', 'edit'].includes(verb)) {
+    if (['set', 'new', 'add', 'update', 'install', 'import', 'register', 'enable', 'disable', 'rename', 'move', 'copy', 'send', 'invoke', 'push', 'write', 'edit', 'export', 'format', 'clear', 'reset', 'restart', 'start', 'mount', 'dismount', 'convert'].includes(verb)) {
       push(ctx, 'modifying-args', cmd);
       return;
     }
@@ -857,12 +891,17 @@ function analyzeNative(ctx: Ctx, cmd: string, args: Tok[]) {
 function scanArgs(ctx: Ctx, args: Tok[], depth: number) {
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a.t === 'open' && (a.v === '{' || a.v === '(' || a.v === '$(' || a.v === '@(')) {
+    if (a.t === 'open') {
+      // Groupings that execute a statement list — ( ), { }, $( ) and the
+      // array-subexpression @( ) — are recursed, so a destructive command can
+      // never hide inside one (the @() bypass). A @{ } hashtable literal is
+      // key/value pairs, not a statement list, so its tokens are scanned flat
+      // (sensitive paths still checked) rather than misread as commands.
+      if (a.v === '@{') continue;
       const close = matchClose(args, i);
       const inner = args.slice(i + 1, close);
-      if (a.v === '{' || a.v === '$(' || a.v === '(') {
-        if (depth < 5) analyzeStatements(ctx, inner, depth + 1);
-      }
+      if (depth < MAX_DEPTH) analyzeStatements(ctx, inner, depth + 1);
+      else if (inner.length) push(ctx, 'parse-error', 'nesting too deep'); // too deep to prove read-only → not read
       i = close;
       continue;
     }
@@ -893,10 +932,11 @@ function scanArgs(ctx: Ctx, args: Tok[], depth: number) {
       if (DANGER_TYPES.test(a.v.replace(/\s/g, ''))) push(ctx, 'method-call', `[${a.v.slice(0, 40)}]`);
       continue;
     }
-    if (a.t === 'word') {
-      if (isWindowsSensitivePath(a.v, ctx.sensitivePatterns)) push(ctx, 'sensitive-path', a.v);
-      if (a.v.toLowerCase() === '-encodedcommand' || a.v.toLowerCase() === '-e' || a.v.toLowerCase() === '-enc') push(ctx, 'interpreter', '-EncodedCommand');
-    }
+    if (a.t === 'word' && isWindowsSensitivePath(a.v, ctx.sensitivePatterns)) push(ctx, 'sensitive-path', a.v);
+    // A quoted path is still a path (Get-Content 'C:\…\.aws\credentials').
+    if (a.t === 'str' && a.value && isWindowsSensitivePath(a.value, ctx.sensitivePatterns)) push(ctx, 'sensitive-path', a.value);
+    // -EncodedCommand / -Command carry hidden code (tokenized as a param, hyphen stripped).
+    if (a.t === 'param' && (a.v === 'encodedcommand' || a.v === 'enc' || a.v === 'e' || a.v === 'command' || a.v === 'c')) push(ctx, 'interpreter', `-${a.v}`);
     if (a.t === 'var' && a.scope === 'env') push(ctx, 'sensitive-command', `$env:${a.name}`);
   }
 }
@@ -950,8 +990,9 @@ const PS_RAW_DANGER: { rx: RegExp; code: ReasonCode; detail: string }[] = [
   { rx: /\b(iex|invoke-expression)\b[\s(]+.*(iwr|irm|invoke-web|invoke-rest|downloadstring|net\.webclient)/is, code: 'download-exec', detail: 'download | iex' },
   { rx: /(iwr|irm|invoke-webrequest|invoke-restmethod|curl|wget)\b[^\n|]*\|\s*(iex|invoke-expression)/is, code: 'download-exec', detail: 'download | iex' },
   { rx: /downloadstring\s*\(/i, code: 'download-exec', detail: 'WebClient.DownloadString' },
-  { rx: /\bremove-item\b[^\n]*\b(-recurse|-r)\b[^\n]*\b(-force|-f)\b|-force[^\n]*-recurse/i, code: 'recursive-delete', detail: 'Remove-Item -Recurse -Force' },
-  { rx: /\b(c|d):\\?\s*(-recurse|-force)|remove-item\s+['"]?[a-z]:\\?['"]?\s+-recurse/i, code: 'root-delete', detail: 'Remove drive root' },
+  // A space (or any non-word char) precedes a switch, so match on that boundary, not \b.
+  { rx: /(?:^|\brm\b|remove-item|ri\b|del\b|erase\b|rd\b)[^\n]*(?:^|\s)-(?:recurse|r)\b[^\n]*(?:^|\s)-(?:force|f)\b|(?:^|\s)-(?:force|f)\b[^\n]*(?:^|\s)-(?:recurse|r)\b/i, code: 'recursive-delete', detail: 'Remove-Item -Recurse -Force' },
+  { rx: /(?:remove-item|\brm\b|ri\b|del\b|erase\b|\brd\b)[^\n]*['"]?[a-z]:[\\/]?['"]?(?:\s|$)[^\n]*(?:^|\s)-(?:recurse|r)\b/i, code: 'root-delete', detail: 'Remove drive root' },
   { rx: /\bformat-volume\b|\bclear-disk\b|\bformat(\.com)?\s+[a-z]:/i, code: 'disk-destroy', detail: 'format / Clear-Disk' },
   { rx: /\bset-executionpolicy\b[^\n]*\b(unrestricted|bypass)\b/i, code: 'security-disable', detail: 'Set-ExecutionPolicy Bypass' },
   { rx: /set-mppreference[^\n]*-disable|add-mppreference[^\n]*-exclusion|disablerealtimemonitoring\s*\$?true/i, code: 'security-disable', detail: 'disable Defender' },
