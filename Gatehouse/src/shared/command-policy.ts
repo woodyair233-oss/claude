@@ -47,6 +47,10 @@ export const DANGER_CODES: ReadonlySet<ReasonCode> = new Set<ReasonCode>([
   'crontab-remove',
   'download-exec',
   'custom-danger',
+  'registry-system',
+  'security-disable',
+  'boot-config',
+  'method-call',
 ]);
 
 /** Codes that do not by themselves make a command non-read-only. */
@@ -1651,6 +1655,10 @@ const REASON_TEXT: Record<ReasonCode, string> = {
   'sensitive-command': 'prints environment variables that may contain secrets',
   'custom-danger': 'matches one of your danger patterns',
   'custom-block': 'matches one of your block patterns',
+  'method-call': 'calls a .NET or COM method that may change the system',
+  'registry-system': 'changes system-wide registry settings',
+  'security-disable': 'turns off antivirus or other security protections',
+  'boot-config': 'changes the boot configuration',
   empty: 'is empty',
 };
 

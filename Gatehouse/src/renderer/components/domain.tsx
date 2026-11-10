@@ -162,6 +162,10 @@ export const REASON_LABEL: Record<ReasonCode, string> = {
   'sensitive-command': 'May print secrets from the environment',
   'custom-danger': 'Matches your danger patterns',
   'custom-block': 'Matches your block patterns',
+  'method-call': 'Calls a .NET or COM method',
+  'registry-system': 'Changes system registry settings',
+  'security-disable': 'Turns off security protections',
+  'boot-config': 'Changes the boot configuration',
   empty: 'Empty command',
 };
 

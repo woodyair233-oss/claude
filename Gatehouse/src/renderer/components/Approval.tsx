@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, ChevronLeft, ChevronRight, Clock, FilePen, FileText, Fingerprint, MessageSquareX, Pencil, Quote, ShieldAlert, Terminal, Zap } from 'lucide-react';
-import type { ApprovalDecision, ApprovalRequest, PolicyCause } from '@shared/types';
+import type { ApprovalDecision, ApprovalRequest, PolicyCause, ShellTarget } from '@shared/types';
 import { assessCommand } from '@shared/command-policy';
 import { api, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
@@ -17,6 +17,11 @@ const CAUSE_TEXT: Record<PolicyCause, string> = {
   'read-only-sensitive': 'This read-only host still asks before reading secrets.',
   'system-path': 'This writes to a system location.',
 };
+
+function shellBadge(shell: ShellTarget): string {
+  if (shell.kind === 'powershell') return shell.edition === 'core' ? t('PowerShell 7') : t('Windows PowerShell 5.1');
+  return shell.distro ? t('WSL ({distro})', { distro: shell.distro }) : t('WSL');
+}
 
 function kindIcon(kind: ApprovalRequest['kind']) {
   if (kind === 'write-file') return <FilePen size={15} />;
@@ -105,6 +110,11 @@ export function ApprovalCard({ req, autoFocus }: { req: ApprovalRequest; autoFoc
           <div className="ac-sub">
             <RiskBadge risk={req.kind === 'write-file' ? 'write' : req.kind === 'read-file' ? 'read' : req.assessment?.risk} small />
             <span className="faint">{t(CAUSE_TEXT[req.cause])}</span>
+            {req.shell && req.shell.kind !== 'posix' && (
+              <span className="badge gray" title={t('Where this command will run')}>
+                <Terminal size={11} /> {shellBadge(req.shell)}
+              </span>
+            )}
           </div>
         </div>
         <CountdownRing remainingMs={remaining} totalMs={total} />

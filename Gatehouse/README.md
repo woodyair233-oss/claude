@@ -27,7 +27,8 @@ Gatehouse 是一款 macOS 应用，主要有两个用途：
 | 隧道 | 本地转发 `-L`、远程转发 `-R`、SOCKS5 代理 `-D`，可开机自动启动，显示流量统计 |
 | 连接 | 共享连接（类似 ControlMaster）、跳板机链、强化加密算法（可为老服务器开启旧算法）、保活 |
 | 连接诊断 | 记录每次连接的每一步（解析、网络、问候、加密、主机身份、登录），失败时自动判断原因（地址错误、端口未开、防火墙、非 SSH 端口、算法过旧、密码/密钥被拒、需两步验证、跳板机、中途断线等）并给出解决办法；可复制诊断报告（默认隐藏地址与用户名），从不记录密码或私钥 |
-| 远端兼容 | 只要对方运行 SSH 服务即可连接，**不限品牌、架构或操作系统**：Linux / macOS / Windows(OpenSSH) / BSD，x86_64 / ARM，AMD（含 Ryzen AI Max 395、ROCm）、Intel（oneAPI）、NVIDIA 等各种硬件生态 |
+| 远端兼容 | 只要对方运行 SSH 服务即可连接，**不限品牌、架构或操作系统**：Linux / macOS / Windows / BSD，x86_64 / ARM，AMD（含 Ryzen AI Max 395、ROCm）、Intel（oneAPI）、NVIDIA 等各种硬件生态 |
+| Windows 主机 | 自动识别 Windows 并改用 **PowerShell** 执行 AI 命令（兼容 Windows PowerShell 5.1 与 PowerShell 7），也可切换到 **WSL（bash）**；远端无需额外安装 bash。PowerShell 命令由专门的 PowerShell 分类器把关，输出自动处理 UTF-8 与本地代码页（如 GBK）乱码 |
 | 加速器感知 | 命令分类器识别各家 GPU/NPU 工具：查询/监控（`nvidia-smi`、`rocm-smi`、`amd-smi`、`xrt-smi`、`xpu-smi`、`rocminfo`、`clinfo` 等）视为只读自动放行；改时钟/功耗/风扇/固件/分区等操作仍需批准 |
 | 主机密钥 | 首次连接核对指纹并固定；密钥改变时强制警告；会沿用 `~/.ssh/known_hosts` 中已有的信任 |
 | AI 网关 | 每台主机四种权限、人工批准（可先修改命令、可拒绝并留言、可临时授权）、紧急停用开关、速率与每日上限 |
@@ -60,7 +61,7 @@ Claude ──MCP(stdio)──▶ gatehouse-mcp ──私有 Unix 套接字 + 令
 - 只读判断采用**白名单**：每一段管道、每个参数都要通过检查。只要出现写入重定向、命令替换、变量展开、子 shell 或后台任务，就不算只读。
 - 高风险检测：涵盖 `rm -rf`、关机重启、防火墙、可能锁死 SSH 的操作、删库、`git push --force`、`curl | sh` 等三十多类。
 - **始终拦截**：递归删除 `/` 或系统目录、直接写入磁盘设备、fork 炸弹。
-- AI 的命令统一用 `bash -c` 执行，避免因登录 shell 不同而产生解析差异。每次都是全新的非交互 shell，不会被 alias 篡改。
+- Linux/macOS 的 AI 命令统一用 `bash -c` 执行，避免因登录 shell 不同而产生解析差异；Windows 主机改用 PowerShell（或 WSL），由对应语法的分类器把关。每次都是全新的非交互 shell，不会被 alias 篡改。
 
 ### 批准
 
@@ -88,8 +89,8 @@ Claude ──MCP(stdio)──▶ gatehouse-mcp ──私有 Unix 套接字 + 令
 
 1. 到正式版下载页：**[Gatehouse 最新正式版](https://github.com/woodyair233-oss/claude/releases/latest)**（开发中的构建也可以在 **Actions → Gatehouse** 最新一次成功运行的 Artifacts 里找到）。
 2. 下载对应的 DMG：
-   - Apple 芯片（M1 及以后）：`Gatehouse-1.1.0-arm64.dmg`
-   - Intel 芯片：`Gatehouse-1.1.0-x64.dmg`
+   - Apple 芯片（M1 及以后）：`Gatehouse-1.2.0-arm64.dmg`
+   - Intel 芯片：`Gatehouse-1.2.0-x64.dmg`
    - 可选校验：和 DMG 放在同一目录下载 `SHA256SUMS.txt`，在“终端”执行 `shasum -a 256 -c SHA256SUMS.txt --ignore-missing`，显示 `OK` 即文件完整。
 3. 打开 DMG，把 Gatehouse 拖进“应用程序”文件夹。
 4. **首次打开**：应用没有 Apple 开发者签名（只有临时签名，ad-hoc signature），macOS 会先阻止它打开：

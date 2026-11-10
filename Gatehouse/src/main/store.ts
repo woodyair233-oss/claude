@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { Host, KnownHostEntry, PortForward, Settings, Snippet, SshKeyInfo } from '../shared/types';
 import { defaultAiPolicy, defaultSettings, newForward, newHost, newSnippet, sampleSnippets } from '../shared/defaults';
 import { DebouncedWriter, readJsonSync } from './fsutil';
+import { normalizeShellSettings } from '../shared/shells';
 
 export interface StoreData {
   version: 1;
@@ -46,6 +47,8 @@ function normalizeHost(raw: Partial<Host>): Host | null {
   host.lastConnectedAt = typeof raw.lastConnectedAt === 'number' ? raw.lastConnectedAt : undefined;
   host.osInfo = typeof raw.osInfo === 'string' ? raw.osInfo : undefined;
   host.ai = mergeKnown(defaultAiPolicy(), raw.ai);
+  host.shell = normalizeShellSettings(raw.shell);
+  host.detectedPlatform = raw.detectedPlatform === 'windows' || raw.detectedPlatform === 'posix' ? raw.detectedPlatform : undefined;
   return host;
 }
 

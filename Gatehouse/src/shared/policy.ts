@@ -9,6 +9,21 @@ import {
   isSystemPath,
   matchCommandPattern,
 } from './command-policy';
+import { DEFAULT_WINDOWS_SENSITIVE_PATHS, isWindowsSensitivePath, isWindowsSystemPath } from './powershell-policy';
+import { effectivePlatform } from './shells';
+
+/** Sensitive-path test that also knows Windows locations on Windows hosts. */
+function pathIsSensitive(host: Host, ai: AiSettings, path: string): boolean {
+  if (effectivePlatform(host) === 'windows') {
+    const extra = ai.sensitivePaths.length ? ai.sensitivePaths : DEFAULT_WINDOWS_SENSITIVE_PATHS;
+    return isWindowsSensitivePath(path, extra) || isSensitivePath(path, sensitivePatterns(ai));
+  }
+  return isSensitivePath(path, sensitivePatterns(ai));
+}
+
+function pathIsSystem(host: Host, path: string): boolean {
+  return effectivePlatform(host) === 'windows' ? isWindowsSystemPath(path) || isSystemPath(path) : isSystemPath(path);
+}
 
 export type DenyCode = 'blocked' | 'read-only' | 'host-deny' | 'file-write-disabled' | 'ai-off';
 
@@ -88,7 +103,7 @@ export function decideCommand({ host, ai, security, command, assessment: a, gran
 
 export function decideFileRead(host: Host, ai: AiSettings, path: string): Decision {
   if (host.ai.mode === 'off') return deny('ai-off', `Host "${host.alias}" is not available to AI.`);
-  if (isSensitivePath(path, sensitivePatterns(ai))) {
+  if (pathIsSensitive(host, ai, path)) {
     return {
       verdict: 'ask',
       cause: host.ai.mode === 'read-only' ? 'read-only-sensitive' : 'sensitive',
@@ -116,10 +131,10 @@ export function decideFileWrite(
   if (mode === 'read-only') return deny('read-only', `"${host.alias}" is read-only for AI; writing files is not allowed.`);
   if (host.ai.fileWrite === 'deny') return deny('file-write-disabled', `File writes are disabled for AI on "${host.alias}".`);
   const touch = host.ai.requireTouchId;
-  if (isSensitivePath(path, sensitivePatterns(ai))) {
+  if (pathIsSensitive(host, ai, path)) {
     return { verdict: 'ask', cause: 'sensitive', requireTouchId: touch, allowRemember: false };
   }
-  if (isSystemPath(path) || /authorized_keys|sshd_config/.test(path)) {
+  if (pathIsSystem(host, path) || /authorized_keys|sshd_config/.test(path)) {
     return { verdict: 'ask', cause: 'system-path', requireTouchId: touch || security.touchIdForDangerous, allowRemember: false };
   }
   if (host.ai.fileWrite === 'allow') return allow('policy');

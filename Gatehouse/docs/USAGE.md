@@ -8,8 +8,8 @@ Claude（或任何 MCP 客户端）只能通过 Gatehouse 提供的工具访问�
 ## 1. 安装与首次启动
 
 1. 到正式版下载页 <https://github.com/woodyair233-oss/claude/releases/latest> 下载对应架构的安装包：
-   - Apple 芯片（M 系列）：`Gatehouse-1.1.0-arm64.dmg`
-   - Intel Mac：`Gatehouse-1.1.0-x64.dmg`
+   - Apple 芯片（M 系列）：`Gatehouse-1.2.0-arm64.dmg`
+   - Intel Mac：`Gatehouse-1.2.0-x64.dmg`
    - 从旧版升级：把新版拖进「应用程序」替换即可，主机、密钥和设置都会保留。
    - 可选：一并下载 `SHA256SUMS.txt`，执行 `shasum -a 256 -c SHA256SUMS.txt --ignore-missing` 校验完整性。
 2. 打开 DMG，把 Gatehouse 拖进「应用程序」。
@@ -131,14 +131,28 @@ Gatehouse 会记录每一次连接的全过程：解析地址 → 建立网络�
 ### 命令分类器（command classifier）
 - 只读识别是**白名单**：只有「已知的只读程序 + 只读参数、且无写入/替换/后台任务」才算只读。
 - 高风险检测是**黑名单**：覆盖 `rm -rf`、关机重启、改防火墙、可能锁死 SSH 的操作、删库、`git push --force`、`curl | sh`、写磁盘设备等三十多类。
+- Linux/macOS 的命令按 bash 语法分类；Windows 主机的 PowerShell 命令由**专门的 PowerShell 分类器**判断（见下）。
 - 两者都**不替代人工批准**，只是帮你把关的第一道防线。
+
+### Windows 主机：PowerShell 与 WSL
+
+Windows 的 OpenSSH 默认把命令交给 PowerShell（而非 bash），旧版 Windows PowerShell 5.1 也不认识 `&&`。因此 Gatehouse 会为 Windows 主机自动改用 PowerShell 语法执行 AI 命令——**远端无需安装 bash、WSL 或 Git Bash**。
+
+- **自动识别**：连接成功后，Gatehouse 会根据服务器的 SSH 问候信息判断是不是 Windows，并记住。
+- **在哪里设置**：主机编辑器 →「高级」→「远端系统」。可选「自动检测 / Linux·macOS / Windows」。选 Windows 后可进一步设置：
+  - **Claude 默认用哪种 shell**：PowerShell 或 WSL（bash）。
+  - **PowerShell 版本**：Windows PowerShell 5.1（系统自带）或 PowerShell 7（pwsh，需另行安装）。生成的命令同时兼容两者。
+  - **是否允许 WSL**，以及指定哪个 WSL 发行版（可选）。
+- **两种语法可切换**：Claude 每条命令都可以选择在 PowerShell 还是 WSL 里运行（WSL 需你先允许）。PowerShell 命令写 PowerShell 语法（`Get-ChildItem`、`Remove-Item`…）；WSL 命令写 bash 语法，在 WSL 里执行。`list_hosts` 会告诉 Claude 每台主机的系统和可用 shell。
+- **各用各的安全规则**：PowerShell 命令由 PowerShell 分类器判断（识别 `Remove-Item -Recurse -Force`、`Set-ExecutionPolicy Bypass`、关闭 Defender、写 `HKLM` 注册表、`Format-Volume`、`bcdedit`、`.NET` 方法调用等高风险操作）；WSL 命令沿用 bash 分类器。批准弹窗里会标明这条命令将在 **PowerShell** 还是 **WSL** 中执行。
+- **乱码与编码**：输出统一按 UTF-8 读取；个别仍用本地代码页（如简体中文 GBK/936）输出的程序会按该代码页解码，避免乱码。
 
 ---
 
 ## 6. 远端兼容性（不限品牌 / 架构 / 系统）
 
 只要对方运行 SSH 服务即可连接：
-- **系统**：Linux、macOS、Windows(OpenSSH)、BSD。
+- **系统**：Linux、macOS、Windows、BSD。Windows 用 OpenSSH 即可，AI 命令自动走 PowerShell（兼容 5.1 与 7），也可选 WSL，远端无需额外装 bash（见 5 节「Windows 主机」）。
 - **架构**：x86_64、ARM 等。
 - **硬件生态**：AMD（含 Ryzen AI Max 395 / ROCm / XDNA NPU）、Intel（oneAPI）、NVIDIA 等皆可。
 - 连接老旧设备时，可在主机设置里开启「旧算法（legacy algorithms）」。
@@ -184,6 +198,8 @@ Gatehouse 会记录每一次连接的全过程：解析地址 → 建立网络�
 - **每次更新都要重新允许钥匙串**：临时签名所致，点「始终允许」即可；也可改用主密码解锁。
 - **Claude 看不到某台主机**：该主机的 AI Access 可能是 Off，或 Gateway 被紧急停用了。
 - **只读命令却要我批准**：可能命中了敏感路径，或命令里有写入/管道/替换等，分类器会保守对待。
+- **服务器是 Windows**：无需在远端装 bash。Gatehouse 会自动识别 Windows 并改用 PowerShell 执行 AI 命令（兼容 5.1 与 7）。想用 WSL（bash）时，在主机「高级 → 远端系统」里允许即可（见第 5 节「Windows 主机」）。若自动识别不准，也可在那里手动指定系统。
+- **Windows 命令乱码**：输出默认按 UTF-8 读取，个别按本地代码页（如简体中文 936）输出的程序也会被正确解码；若仍有乱码，多半是远端程序用了少见编码，可改用 `chcp 65001` 或在 WSL 里运行。
 - **想让某条命令以后不再问**：在批准框点「Always allow」，或在主机允许列表里添加。
 - **连接失败**：打开这台主机的「连接日志」，按结论下面的建议处理（见第 3 节「连接失败时：查看连接日志」）。需要求助时，点「复制诊断报告」发给管理员。
 - **连不上老服务器**：连接日志会提示“服务器只支持过时的加密方式”，在主机设置的「高级」里开启「为老旧服务器启用旧版算法」。

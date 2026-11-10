@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bot, Eye, EyeOff, FlaskConical, Hand, KeyRound, Lock, Plug, Server, Settings2, ShieldCheck, Sparkles, Trash2, Zap } from 'lucide-react';
-import type { AiMode, AuthMethod, Host, HostColor, HostDraft } from '@shared/types';
+import type { AiMode, AuthMethod, CommandShell, Host, HostColor, HostDraft } from '@shared/types';
 import { HOST_COLORS } from '@shared/types';
-import { ALIAS_PATTERN, defaultAiPolicy, slugify } from '@shared/defaults';
-import { assessCommand } from '@shared/command-policy';
+import { ALIAS_PATTERN, defaultAiPolicy, defaultShellSettings, draftOf, slugify } from '@shared/defaults';
+import { assessShellCommand } from '@shared/shells';
 import { decideCommand } from '@shared/policy';
 import { api, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
@@ -18,10 +18,7 @@ import { KeyGenDialog, KeyImportDialog } from './KeyDialogs';
 type Tab = 'general' | 'auth' | 'ai' | 'advanced';
 
 function draftFrom(host: Host | undefined, defaultMode: AiMode): HostDraft {
-  if (host) {
-    const { id, alias, name, hostname, port, username, auth, keyId, savePassword, jumpHostId, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai } = host;
-    return { id, alias, name, hostname, port, username, auth, keyId: keyId ?? null, savePassword, jumpHostId: jumpHostId ?? null, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai: structuredClone(ai) };
-  }
+  if (host) return draftOf(host);
   return {
     alias: '',
     name: '',
@@ -41,6 +38,7 @@ function draftFrom(host: Host | undefined, defaultMode: AiMode): HostDraft {
     favorite: false,
     legacyAlgorithms: false,
     ai: defaultAiPolicy(defaultMode),
+    shell: defaultShellSettings(),
   };
 }
 
@@ -53,21 +51,34 @@ const MODE_ICONS: Record<AiMode, React.ReactNode> = {
 
 function CommandTester({ draft }: { draft: HostDraft }) {
   const settings = useApp((s) => s.snap!.settings);
-  const [cmd, setCmd] = useState('systemctl restart nginx');
+  const windows = draft.shell.platform === 'windows';
+  const [cmd, setCmd] = useState(windows ? 'Restart-Service sshd' : 'systemctl restart nginx');
+  const [shell, setShellKind] = useState<CommandShell>('posix');
+  const kind: CommandShell = windows ? (shell === 'posix' ? (draft.shell.windowsDefault === 'wsl' ? 'wsl' : 'powershell') : shell) : 'posix';
   const result = useMemo(() => {
     if (!cmd.trim()) return null;
     const ai = settings.ai;
-    const assessment = assessCommand(cmd, { extraReadOnly: ai.extraReadOnlyCommands, dangerPatterns: ai.dangerPatterns, blockPatterns: ai.blockPatterns, sensitivePaths: ai.sensitivePaths });
+    const assessment = assessShellCommand(cmd, kind, { extraReadOnly: ai.extraReadOnlyCommands, dangerPatterns: ai.dangerPatterns, blockPatterns: ai.blockPatterns, sensitivePaths: ai.sensitivePaths });
     const host = { ...(draft as unknown as Host), id: draft.id ?? 'draft', alias: draft.alias || 'host', keyId: draft.keyId ?? undefined, jumpHostId: draft.jumpHostId ?? undefined, createdAt: 0, updatedAt: 0 };
     const decision = decideCommand({ host, ai, security: settings.security, command: cmd, assessment, grantActive: false });
     return { assessment, decision };
-  }, [cmd, draft, settings]);
+  }, [cmd, draft, settings, kind]);
   return (
     <div className="tester">
       <div className="field-label" style={{ marginBottom: 6 }}>
         <FlaskConical size={13} /> {t('Try a command')}
       </div>
-      <Input mono value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder="tail -n 50 /var/log/syslog" />
+      {windows && (
+        <Segmented
+          value={kind === 'wsl' ? 'wsl' : 'powershell'}
+          onChange={(v) => setShellKind(v)}
+          options={[
+            { value: 'powershell', label: t('PowerShell') },
+            ...(draft.shell.wsl ? [{ value: 'wsl' as const, label: t('WSL (bash)') }] : []),
+          ]}
+        />
+      )}
+      <Input mono value={cmd} onChange={(e) => setCmd(e.target.value)} placeholder={windows ? 'Get-ChildItem C:\\logs' : 'tail -n 50 /var/log/syslog'} />
       {result && (
         <div className="tester-result">
           <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -114,6 +125,7 @@ export function HostEditor() {
 
   const set = <K extends keyof HostDraft>(k: K, v: HostDraft[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const setAi = <K extends keyof HostDraft['ai']>(k: K, v: HostDraft['ai'][K]) => setDraft((d) => ({ ...d, ai: { ...d.ai, [k]: v } }));
+  const setShell = <K extends keyof HostDraft['shell']>(k: K, v: HostDraft['shell'][K]) => setDraft((d) => ({ ...d, shell: { ...d.shell, [k]: v } }));
 
   const aliasError = draft.alias && !ALIAS_PATTERN.test(draft.alias) ? t('Lowercase letters, digits and dashes; max 40 characters.') : snap.hosts.some((h) => h.alias === draft.alias && h.id !== draft.id) ? t('Another host already uses this alias.') : '';
   const valid = !!draft.hostname.trim() && !!draft.alias && !aliasError && draft.port > 0 && draft.port < 65536;
@@ -398,6 +410,58 @@ export function HostEditor() {
 
       {tab === 'advanced' && (
         <>
+          <Field label={t('Remote system')} hint={t('Which commands and syntax Gatehouse uses. Auto-detect reads the server\'s SSH greeting on connect.')}>
+            <Segmented
+              value={draft.shell.platform}
+              onChange={(v) => setShell('platform', v)}
+              block
+              options={[
+                { value: 'auto', label: t('Auto-detect') },
+                { value: 'posix', label: t('Linux / macOS') },
+                { value: 'windows', label: t('Windows') },
+              ]}
+            />
+          </Field>
+          {draft.shell.platform === 'auto' && existing?.detectedPlatform && (
+            <Callout tone="amber" icon={<Server size={15} />}>
+              {existing.detectedPlatform === 'windows' ? t('Detected as Windows on the last connection.') : t('Detected as Linux/macOS on the last connection.')}
+            </Callout>
+          )}
+          {(draft.shell.platform === 'windows' || (draft.shell.platform === 'auto' && existing?.detectedPlatform === 'windows')) && (
+            <div className="win-shell">
+              <Field label={t('Default shell for Claude')} hint={t('Which shell runs AI commands when Claude does not ask for a specific one.')}>
+                <Segmented
+                  value={draft.shell.windowsDefault}
+                  onChange={(v) => setShell('windowsDefault', v)}
+                  block
+                  options={[
+                    { value: 'powershell', label: t('PowerShell') },
+                    { value: 'wsl', label: t('WSL (bash)'), title: draft.shell.wsl ? undefined : t('Enable WSL below first') },
+                  ]}
+                />
+              </Field>
+              <Field label={t('PowerShell version')} hint={t('Windows PowerShell 5.1 ships with Windows; PowerShell 7 (pwsh) is installed separately.')}>
+                <Segmented
+                  value={draft.shell.powershell}
+                  onChange={(v) => setShell('powershell', v)}
+                  block
+                  options={[
+                    { value: 'desktop', label: t('Windows PowerShell 5.1') },
+                    { value: 'core', label: t('PowerShell 7') },
+                  ]}
+                />
+              </Field>
+              <label className="row" style={{ marginBottom: 8 }}>
+                <Switch on={draft.shell.wsl} onChange={(v) => setShell('wsl', v)} />
+                <span>{t('Allow Claude to run commands inside WSL (bash)')}</span>
+              </label>
+              {draft.shell.wsl && (
+                <Field label={t('WSL distribution (optional)')} hint={t('Leave empty to use the default distribution.')}>
+                  <Input value={draft.shell.wslDistro} onChange={(e) => setShell('wslDistro', e.target.value)} placeholder="Ubuntu" />
+                </Field>
+              )}
+            </div>
+          )}
           <Field label={t('Jump host')} hint={t('Connect through another saved host (like ProxyJump).')}>
             <Select
               value={draft.jumpHostId ?? ''}

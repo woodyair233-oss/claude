@@ -1,4 +1,5 @@
 import type { Host, Snippet } from '@shared/types';
+import { draftOf } from '@shared/defaults';
 import { api, attempt, useApp } from './store';
 import { t } from './i18n';
 import { confirmDialog } from '../components/overlays';
@@ -98,19 +99,12 @@ export async function hostContextMenu(host: Host) {
 }
 
 export async function toggleFavorite(host: Host) {
-  const { id, alias, name, hostname, port, username, auth, keyId, savePassword, jumpHostId, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai } = host;
-  await attempt(
-    () => api().hosts.save({ id, alias, name, hostname, port, username, auth, keyId: keyId ?? null, savePassword, jumpHostId: jumpHostId ?? null, group, tags, color, notes, keepAliveSec, startupCommand, favorite: !favorite, legacyAlgorithms, ai }),
-    t('Could not update host'),
-  );
+  await attempt(() => api().hosts.save({ ...draftOf(host), favorite: !host.favorite }), t('Could not update host'));
 }
 
 export async function setHostMode(host: Host, mode: Host['ai']['mode']) {
-  const { id, alias, name, hostname, port, username, auth, keyId, savePassword, jumpHostId, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai } = host;
-  await attempt(
-    () => api().hosts.save({ id, alias, name, hostname, port, username, auth, keyId: keyId ?? null, savePassword, jumpHostId: jumpHostId ?? null, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai: { ...ai, mode } }),
-    t('Could not update host'),
-  );
+  const draft = draftOf(host);
+  await attempt(() => api().hosts.save({ ...draft, ai: { ...draft.ai, mode } }), t('Could not update host'));
 }
 
 export async function runSnippetInTerminal(snippet: Snippet, hostId?: string) {

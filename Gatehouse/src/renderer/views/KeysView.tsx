@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Copy, FileKey, Fingerprint, KeyRound, MoreHorizontal, ServerCog, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import type { SshKeyInfo } from '@shared/types';
+import { draftOf } from '@shared/defaults';
 import { api, attempt, useApp } from '../lib/store';
 import { t } from '../lib/i18n';
 import { formatDate, relativeTime } from '../lib/format';
@@ -37,8 +38,7 @@ export function KeysView() {
     if (host && (host.auth !== 'key' || host.keyId !== k.id)) {
       const use = await confirmDialog({ title: t('Use this key for {name}?', { name: host.name || host.alias }), message: t('Switch the host to key authentication with "{key}".', { key: k.name }), confirmLabel: t('Use Key') });
       if (use) {
-        const { id, alias, name, hostname, port, username, savePassword, jumpHostId, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai } = host;
-        await attempt(() => api().hosts.save({ id, alias, name, hostname, port, username, auth: 'key', keyId: k.id, savePassword, jumpHostId: jumpHostId ?? null, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai }), t('Could not update host'));
+        await attempt(() => api().hosts.save({ ...draftOf(host), auth: 'key', keyId: k.id }), t('Could not update host'));
       }
     }
   };

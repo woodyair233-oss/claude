@@ -17,6 +17,7 @@ import { checkSystemKnownHosts } from './known-hosts';
 import { cleanMethods, cleanServerText, ConnLog, ConnPrepError, ConnTrace, dropReason, IDENT_TIMEOUT_MS, keyTypeLabel, openSocket, probePort, resolveHost, tunnelReason } from './diagnostics';
 // ssh2 keeps its algorithm tables here; used to drop names this runtime cannot use.
 import constants from 'ssh2/lib/protocol/constants.js';
+import { isWindowsServerSoftware } from '../../shared/shells';
 
 
 const { Client } = ssh2;
@@ -471,7 +472,10 @@ export class ConnectionManager extends EventEmitter {
         pooled.connectedAt = Date.now();
         trace.step('auth-ok', 'ok', { method: trace.lastMethod ?? host.auth });
         trace.connected();
-        this.deps.store.patchHost(host.id, { lastConnectedAt: Date.now() });
+        // The SSH greeting says whether this is a Windows server: commands are wrapped for its shell.
+        const software = trace.attempt.server;
+        const detectedPlatform = software ? (isWindowsServerSoftware(software) ? 'windows' : 'posix') : host.detectedPlatform;
+        this.deps.store.patchHost(host.id, { lastConnectedAt: Date.now(), detectedPlatform });
         // Persist a freshly-entered password only now that it has actually worked.
         void plan.commit?.().catch(() => undefined);
         this.emit('change');

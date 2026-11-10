@@ -6,7 +6,8 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import type { ContextMenuItem, Host, HostDraft, PortForward, PromptResponse, Snippet } from '../shared/types';
 import { newForward, newHost, newSnippet, slugify } from '../shared/defaults';
-import { assessCommand, describeReason } from '../shared/command-policy';
+import { describeReason } from '../shared/command-policy';
+import { assessShellCommand, chooseShell } from '../shared/shells';
 import { decideCommand } from '../shared/policy';
 import { TokenMap, redact, sanitizeOutput } from '../shared/redaction';
 import type { AppContext } from './context';
@@ -582,7 +583,9 @@ export function registerIpc(ctx: AppContext) {
   });
   handle('gateway:previewCommand', (command: string, hostId?: string) => {
     const host = (hostId && store.getHost(hostId)) || newHost({ id: 'preview', alias: 'preview' }, 'ask');
-    const assessment = assessCommand(String(command ?? ''), gateway.classifierOptions());
+    const picked = chooseShell(host);
+    const kind = picked.ok ? picked.target.kind : 'posix';
+    const assessment = assessShellCommand(String(command ?? ''), kind, gateway.classifierOptions());
     const d = decideCommand({ host, ai: store.settings.ai, security: store.settings.security, command: String(command ?? ''), assessment, grantActive: false });
     const detail = d.verdict === 'deny' ? d.message : d.verdict === 'ask' ? d.cause : d.by;
     return { assessment, verdict: d.verdict, detail: detail || assessment.reasons.map(describeReason).join('; ') };

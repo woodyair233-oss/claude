@@ -28,6 +28,34 @@ export const HOST_COLORS: HostColor[] = [
   'gray',
 ];
 
+/** What the remote system is. 'auto' follows the server's SSH greeting. */
+export type HostPlatform = 'auto' | 'posix' | 'windows';
+/** The two ways Claude's commands can run on a Windows host. */
+export type WindowsShell = 'powershell' | 'wsl';
+/** Windows PowerShell 5.1 (powershell.exe) or PowerShell 7 (pwsh.exe). */
+export type PowerShellEdition = 'desktop' | 'core';
+/** The syntax a command is written in and the shell that runs it. */
+export type CommandShell = 'posix' | 'powershell' | 'wsl';
+
+export interface HostShellSettings {
+  platform: HostPlatform;
+  /** Windows: the shell used when Claude does not ask for one. */
+  windowsDefault: WindowsShell;
+  powershell: PowerShellEdition;
+  /** Windows: Claude may also run commands inside WSL. */
+  wsl: boolean;
+  /** WSL distribution; empty means the default one. */
+  wslDistro: string;
+}
+
+/** Where one command runs, as shown to the user and recorded in the audit log. */
+export interface ShellTarget {
+  kind: CommandShell;
+  /** PowerShell edition (WSL commands are started from PowerShell too). */
+  edition?: PowerShellEdition;
+  distro?: string;
+}
+
 export interface HostAiPolicy {
   mode: AiMode;
   fileWrite: FileWriteMode;
@@ -63,10 +91,13 @@ export interface Host {
   /** Allow SHA-1 / CBC algorithms for very old servers. */
   legacyAlgorithms: boolean;
   ai: HostAiPolicy;
+  shell: HostShellSettings;
   createdAt: number;
   updatedAt: number;
   lastConnectedAt?: number;
   osInfo?: string;
+  /** Learned from the server's SSH greeting on the last successful connection. */
+  detectedPlatform?: 'posix' | 'windows';
 }
 
 export type KeyType = 'ed25519' | 'rsa' | 'ecdsa' | 'unknown';
@@ -257,6 +288,10 @@ export type ReasonCode =
   | 'sensitive-command'
   | 'custom-danger'
   | 'custom-block'
+  | 'method-call'
+  | 'registry-system'
+  | 'security-disable'
+  | 'boot-config'
   | 'empty';
 
 export interface Reason {
@@ -311,6 +346,8 @@ export interface ApprovalRequest {
   appendMode?: boolean;
   reason?: string;
   assessment?: CommandAssessment;
+  /** Windows hosts: the shell the command will run in. */
+  shell?: ShellTarget;
   cause: PolicyCause;
   requireTouchId: boolean;
   /** Offer "always allow this exact command" (not for dangerous commands). */
@@ -346,6 +383,8 @@ export interface AuditEntry {
   path?: string;
   reason?: string;
   risk?: RiskLevel;
+  /** Windows hosts: which shell ran the command. */
+  shell?: CommandShell;
   outcome: AuditOutcome;
   decidedBy?: DecidedBy;
   userMessage?: string;
@@ -725,7 +764,7 @@ export interface KeyImportInput {
   savePassphrase: boolean;
 }
 
-export type HostDraft = Omit<Host, 'id' | 'createdAt' | 'updatedAt' | 'lastConnectedAt' | 'osInfo' | 'keyId' | 'jumpHostId'> & {
+export type HostDraft = Omit<Host, 'id' | 'createdAt' | 'updatedAt' | 'lastConnectedAt' | 'osInfo' | 'detectedPlatform' | 'keyId' | 'jumpHostId'> & {
   id?: string;
   keyId?: string | null;
   jumpHostId?: string | null;

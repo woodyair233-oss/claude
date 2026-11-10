@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import type { Settings } from '../shared/types';
 import { ALIAS_PATTERN } from '../shared/defaults';
+import { WSL_DISTRO_PATTERN } from '../shared/shells';
 
 export const hostnameSchema = z
   .string()
@@ -30,6 +31,14 @@ export const aiPolicySchema = z.object({
   description: z.string().max(500),
 });
 
+export const shellSettingsSchema = z.object({
+  platform: z.enum(['auto', 'posix', 'windows']),
+  windowsDefault: z.enum(['powershell', 'wsl']),
+  powershell: z.enum(['desktop', 'core']),
+  wsl: z.boolean(),
+  wslDistro: z.string().trim().max(64).refine((v) => v === '' || WSL_DISTRO_PATTERN.test(v), 'WSL distribution: letters, digits, dots, dashes and underscores'),
+});
+
 export const hostInputSchema = z.object({
   id: z.string().uuid().optional(),
   alias: z.string().trim().toLowerCase().regex(ALIAS_PATTERN, 'Alias: lowercase letters, digits and dashes (max 40)'),
@@ -50,6 +59,7 @@ export const hostInputSchema = z.object({
   favorite: z.boolean(),
   legacyAlgorithms: z.boolean(),
   ai: aiPolicySchema,
+  shell: shellSettingsSchema,
 });
 export type HostInput = z.infer<typeof hostInputSchema>;
 

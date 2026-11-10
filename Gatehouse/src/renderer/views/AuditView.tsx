@@ -127,7 +127,8 @@ export function AuditView() {
                       <td className="ellipsis" style={{ maxWidth: 120 }}>{e.client}</td>
                       <td className="nowrap"><span className="row" style={{ gap: 5 }}>{TOOL_ICON[e.tool]}{t(TOOL_LABEL[e.tool] ?? e.tool)}</span></td>
                       <td>{e.hostAlias ? <HostChip alias={e.hostAlias} color={hosts.find((h) => h.id === e.hostId)?.color} /> : <span className="faint">—</span>}</td>
-                      <td className="mono ellipsis selectable" style={{ maxWidth: 340 }} title={[e.command ?? e.path, e.userMessage && `“${e.userMessage}”`, e.error].filter(Boolean).join('\n')}>
+                      <td className="mono ellipsis selectable" style={{ maxWidth: 340 }} title={[e.command ?? e.path, e.shell && e.shell !== 'posix' ? `(${e.shell === 'wsl' ? 'WSL' : 'PowerShell'})` : '', e.userMessage && `“${e.userMessage}”`, e.error].filter(Boolean).join('\n')}>
+                        {e.shell === 'powershell' ? <span className="faint">PS❯ </span> : e.shell === 'wsl' ? <span className="faint">WSL❯ </span> : null}
                         {e.command ?? e.path ?? e.error ?? ''}
                       </td>
                       <td>{e.risk && e.risk !== 'block' && e.tool !== 'list_hosts' && e.outcome !== 'blocked' ? <RiskBadge risk={e.risk} small /> : null}</td>

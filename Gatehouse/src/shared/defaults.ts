@@ -1,4 +1,4 @@
-import type { AiMode, Host, HostAiPolicy, PortForward, Settings, Snippet } from './types';
+import type { AiMode, Host, HostAiPolicy, HostDraft, HostShellSettings, PortForward, Settings, Snippet } from './types';
 import { DEFAULT_SENSITIVE_PATHS } from './command-policy';
 
 export const APP_NAME = 'Gatehouse';
@@ -14,6 +14,10 @@ export function defaultAiPolicy(mode: AiMode = 'ask'): HostAiPolicy {
     requireTouchId: false,
     description: '',
   };
+}
+
+export function defaultShellSettings(): HostShellSettings {
+  return { platform: 'auto', windowsDefault: 'powershell', powershell: 'desktop', wsl: false, wslDistro: '' };
 }
 
 export function defaultSettings(): Settings {
@@ -105,9 +109,20 @@ export function newHost(partial: Partial<Host> & { id: string }, mode: AiMode = 
     favorite: false,
     legacyAlgorithms: false,
     ai: defaultAiPolicy(mode),
+    shell: defaultShellSettings(),
     createdAt: now,
     updatedAt: now,
     ...partial,
+  };
+}
+
+/** The editable fields of a saved host, as hosts.save expects them. */
+export function draftOf(host: Host): HostDraft {
+  const { id, alias, name, hostname, port, username, auth, keyId, savePassword, jumpHostId, group, tags, color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms, ai, shell } = host;
+  return {
+    id, alias, name, hostname, port, username, auth, keyId: keyId ?? null, savePassword, jumpHostId: jumpHostId ?? null,
+    group, tags: [...tags], color, notes, keepAliveSec, startupCommand, favorite, legacyAlgorithms,
+    ai: structuredClone(ai), shell: { ...shell },
   };
 }
 
